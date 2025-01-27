@@ -1,0 +1,1 @@
+(Get-Item "C:\ProgramData\Microsoft\Windows Defender Advanced Threat Protection\Platform\$(Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows Advanced Threat Protection\' -Name "InstallLocation").InstallLocation.Split('\')[-1]\MsSense.exe").VersionInfo.FileVersion

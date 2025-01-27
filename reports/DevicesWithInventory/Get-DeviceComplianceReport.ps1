@@ -9,7 +9,7 @@ $graphSplat = @{
     body   = "
     {
     `"id`": `"DeviceCompliance_00000000-0000-0000-0000-000000000001`",
-    `"filter`": `"`",
+    `"filter`": `"OS eq 'IOS'`",
     `"orderBy`": [],
     `"select`": [
         `"DeviceName`",
