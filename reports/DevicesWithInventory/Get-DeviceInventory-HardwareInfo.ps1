@@ -5,19 +5,35 @@ Connect-MgGraph -Scopes "DeviceManagementManagedDevices.Read.All"
 $graphApiEndpoint = "https://graph.microsoft.com/beta/deviceManagement/reports/exportJobs"
 
 $mfgr = 'QEMU'
-$mdl = 'Standard PC (Q35 + ICH9, 2008)'
+$mdl = 'Standard PC (Q35 + ICH9, 2009)'
 
 # Prepare the body for the POST request
-$requestBody = @{
-    filter     = "(((DeviceType eq '0') or (DeviceType eq '1') or (DeviceType eq '7') or (DeviceType eq '16') or (DeviceType eq '19') or (DeviceType eq '4') or (DeviceType eq '15')) and ((Manufacturer eq '$mfgr') and (Model eq '$mdl')))"
-    select     = @(
+
+<#
+@(
         "DeviceId",
         "DeviceName",
         "managementAgent",
         "OS",
         "LastContact",
         "Model",
-        "Manufacturer"
+        "Manufacturer",
+        "WiFiIPv4Address",
+        "EthernetIPv4Address"
+    )
+#>
+$requestBody = @{
+    filter     = "(((DeviceType eq '0') or (DeviceType eq '1') or (DeviceType eq '7') or (DeviceType eq '16') or (DeviceType eq '19') or (DeviceType eq '4') or (DeviceType eq '15')) and ((Manufacturer eq '$mfgr') and (Model eq '$mdl')))"
+    select = @(
+        "DeviceId",
+        "DeviceName",
+        "managementAgent",
+        "OS",
+        "LastContact",
+        "Model",
+        "Manufacturer",
+        "WiFiIPv4Address",
+        "UPN"
     )
     format     = 'csv'
     reportName = "DevicesWithInventory"
