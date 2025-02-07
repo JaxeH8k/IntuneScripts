@@ -49,6 +49,5 @@ foreach($path in $registrySettings.Keys){
             }
     }
 }
-
 # We've made it through the list with no exit.  Exit 0 as a success; no remediation required.
 Exit 0
