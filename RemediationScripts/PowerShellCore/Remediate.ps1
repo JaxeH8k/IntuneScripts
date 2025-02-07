@@ -33,7 +33,7 @@ $registrySettings = @{
         "ExecutionPolicy" = @{ Value = "Unrestricted"; Type = "String" }
     }
     "HKLM:\SOFTWARE\Policies\Microsoft\PowerShellCore\ModuleLogging" = @{
-        "EnableModuleLogging" = @{ Value = 1; Type = "DWord" }
+        "EnableModuleLogging" = @{ Value = 0; Type = "DWord" }
     }
     "HKLM:\SOFTWARE\Policies\Microsoft\PowerShellCore\ModuleLogging\ModuleNames" = @{
         "*" = @{ Value = "*"; Type = "String" }
@@ -42,7 +42,7 @@ $registrySettings = @{
         "EnableScriptBlockLogging" = @{ Value = 1; Type = "DWord" }
     }
     "HKLM:\SOFTWARE\Policies\Microsoft\PowerShellCore\Transcription" = @{
-        "EnableTranscripting" = @{ Value = 1; Type = "DWord" }
+        "EnableTranscripting" = @{ Value = 0; Type = "DWord" }
         "OutputDirectory" = @{ Value = "C:\ProgramData\PS_Transcript"; Type = "String" }
     }
 }
