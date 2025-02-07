@@ -24,7 +24,7 @@ foreach($path in $registrySettings.Keys){
     # read keys, if any are not present, exit 1 to trigger remediation
     # Ensure the registry path exists
     $segments = $path -split '\\'
-    for ($i = 1; $i -lt $segments.Length; $i++) {
+    for ($i = 4; $i -lt $segments.Length; $i++) {
         $currentPath = ($segments[0..$i] -join '\')
         if (-not (Test-Path -Path $currentPath)) {
             Exit 1 # Trigger remediation from Intune.
