@@ -53,7 +53,7 @@ try {
         try {
             # Ensure the registry path exists
             $segments = $path -split '\\'
-            for ($i = 1; $i -lt $segments.Length; $i++) {
+            for ($i = 4; $i -lt $segments.Length; $i++) {
                 $currentPath = ($segments[0..$i] -join '\')
                 if (-not (Test-Path -Path $currentPath)) {
                     Write-Log -Message "Creating registry key: $currentPath"
