@@ -1,7 +1,33 @@
 # Device Compliance Refresh & Export
 
 Connect-MgGraph -NoWelcome
-
+<#
+All Possible Select fields:
+    "DeviceName",
+    "SettingNm",
+    "PolicyName",
+    "CalculatedPolicyVersion",
+    "LatestPolicyVersion",
+    "SettingStatus",
+    "ErrorCodeString",
+    "UPN",
+    "ComplianceState",
+    "OS",
+    "OSVersion",
+    "OwnerType",
+    "LastContact",
+    "ManagementAgents",
+    "InGracePeriodUntil",
+    "DeviceHealthThreatLevel",
+    "UserEmail",
+    "UserName",
+    "DeviceId",
+    "AadDeviceId",
+    "UserId",
+    "IMEI",
+    "SerialNumber",
+    "RetireAfterDatetime"
+#>
 # request a report export
 $graphSplat = @{
     uri    = 'https://graph.microsoft.com/beta/deviceManagement/reports/exportJobs'
