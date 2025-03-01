@@ -1,0 +1,32 @@
+import UIKit
+
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+
+    var window: UIWindow?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        // Ensure we’re working with a window scene
+        guard let windowScene = (scene as? UIWindowScene) else { return }
+        
+        // Create the window
+        let window = UIWindow(windowScene: windowScene)
+        self.window = window
+        
+        // Pick a random URL
+        let urls = ["https://foo1.foo.com", "https://foo2.foo.com"]
+        let randomURL = urls.randomElement() ?? urls[0] // Fallback to first if random fails
+        
+        // Open the URL in Safari
+        if let url = URL(string: randomURL) {
+            UIApplication.shared.open(url, options: [:]) { success in
+                if !success 
+                    print("Failed to open URL: \(randomURL)")
+                }
+            }
+        }
+        
+        // Optional: Set a blank view controller so the app doesn’t look broken if it stays open
+        window.rootViewController = UIViewController()
+        window.makeKeyAndVisible()
+    }
+}
