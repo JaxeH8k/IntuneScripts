@@ -6,23 +6,13 @@ Connect-MgGraph -NoWelcome
 $graphSplat = @{
     uri    = 'https://graph.microsoft.com/beta/deviceManagement/reports/cachedReportConfigurations'
     method = 'POST'
-    body   = "
-    {
-    `"id`": `"DeviceCompliance_00000000-0000-0000-0000-000000000001`",
-    `"filter`": `"OS eq 'IOS'`",
-    `"orderBy`": [],
-    `"select`": [
-        `"DeviceName`",
-        `"UPN`",
-        `"ComplianceState`",
-        `"OS`",
-        `"OwnerType`",
-        `"LastContact`",
-        `"SerialNumber`"
-    ],
-    `"localizationType`": `"ReplaceLocalizableValues`"
-    }
-    "
+    body   = @{
+        id = "DeviceCompliance_00000000-0000-0000-0000-000000000001"
+        filter = ""
+        orderBy = @()
+        select = @()
+        localizationType = "ReplaceLocalizableValues"
+    } | ConvertTo-Json -Depth 3
 }
 
 $refreshRequest = Invoke-MgGraphRequest @graphSplat
@@ -45,23 +35,14 @@ while ($status -ne 'completed') {
 $graphSplat = @{
     uri    = 'https://graph.microsoft.com/beta/deviceManagement/reports/exportJobs'
     method = 'POST'
-    body   = "{
-        `"filter`": `"`",
-        `"format`": `"csv`",
-        `"search`": `"`",
-        `"select`": [
-            `"DeviceName`",
-            `"UPN`",
-            `"ComplianceState`",
-            `"OS`",
-            `"OSVersion`",
-            `"OwnerType`",
-            `"LastContact`",
-            `"SerialNumber`"
-    ],
-    `"snapshotId`": `"DeviceCompliance_00000000-0000-0000-0000-000000000001`",
-    `"reportName`": `"DeviceCompliance`"
-    }"
+    body = @{
+        filter = ""
+        format = "csv"
+        search = ""
+        select = @()
+        snapshotId = "DeviceCompliance_00000000-0000-0000-0000-000000000001"
+        reportName = "DeviceCompliance"
+    } | ConvertTo-Json -Depth 3
 }
 $exportRequest = Invoke-MgGraphRequest @graphSplat
 

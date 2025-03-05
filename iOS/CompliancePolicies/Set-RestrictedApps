@@ -1,0 +1,34 @@
+# Connect-MgGraph
+
+$splat = @{
+    uri = 'https://graph.microsoft.com/beta/deviceManagement/deviceCompliancePolicies/17897d4c-cd6d-416e-b7e8-14ed10e4724b'
+    method = "PATCH"
+    body = @{
+        displayName = "Compliance"
+        id = "17897d4c-cd6d-416e-b7e8-14ed10e4724b"
+        description = ""
+        "@odata.type" = "#microsoft.graph.iosCompliancePolicy"
+        passcodeRequiredType =  "deviceDefault"
+        passcodeRequired =  $false
+        osMinimumVersion =  "17.0"
+        securityBlockJailbrokenDevices =  $true
+        deviceThreatProtectionEnabled =  $false
+        deviceThreatProtectionRequiredSecurityLevel =  "medium"
+        advancedThreatProtectionRequiredSecurityLevel =  "unavailable"
+        managedEmailProfileRequired =  $false
+        restrictedApps =  @(
+            @{
+                name = "Google Chrome"
+                appId = "com.google.chrome.ios"
+            },
+            @{
+                name = "Jake Cool"
+                appId = "com.jake.app"
+            }
+        )
+        'assignments@odata.context' = "https://graph.microsoft.com/beta/`$metadata#deviceManagement/deviceCompliancePolicies('17897d4c-cd6d-416e-b7e8-14ed10e4724b')/microsoft.graph.iosCompliancePolicy/assignments"
+        'scheduledActionsForRule@odata.context' = "https://graph.microsoft.com/beta/`$metadata#deviceManagement/deviceCompliancePolicies('17897d4c-cd6d-416e-b7e8-14ed10e4724b')/microsoft.graph.iosCompliancePolicy/scheduledActionsForRule(scheduledActionConfigurations())"
+    } | ConvertTo-Json -Depth 3
+}
+
+Invoke-MgGraphRequest @splat
