@@ -1,10 +1,23 @@
-Connect-MgGraph
+param(
+    [string]$bundleId = $null,
+    [string]$appId = $null
+)
 
+# get itunes app data
+if ($null -like $bundleId -and $null -like $appId){
+    return "Either -AppId or -BundleId required"
+    exit 1
+}
 
+if($null -notlike $bundleId){
+    $lookupVal = $bundleId
+    $url = "https://itunes.apple.com/lookup?bundleId="
+} elseIf ($null -notlike $appId){
+    $lookupVal = $appId # google maps
+    $url = "https://itunes.apple.com/lookup?id="
+}
 # get info from iOS Store for later use in creating the Intune Mobile App
-$appId = '546505307' # google maps
-$url = "https://itunes.apple.com/lookup?id="
-$req = Invoke-RestMethod -Uri "$url$appid"
+$req = Invoke-RestMethod -Uri "$url$lookupVal"
 
 # fetch image icon and convert to base64 // see https://raw.githubusercontent.com/microsoftgraph/powershell-intune-samples/refs/heads/master/Applications/Application_iOS_Add.ps1
 $iconUrl = $req.results.artworkUrl60
