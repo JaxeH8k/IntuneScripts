@@ -1,0 +1,4 @@
+$hash = @{
+    FirewallStatus = (Get-NetFirewallProfile).enabled -notcontains $false
+}
+return $hash | ConvertTo-Json -Compress
