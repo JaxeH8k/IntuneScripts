@@ -11,7 +11,7 @@ if (-not (Test-Path -Path "C:\Logs")) {
 function Write-Log {
     param($Message)
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    "$timestamp - $Message" | Out-File -FilePath $logFile -Append
+    "$timestamp - $Message" | Tee-Object -FilePath $logFile -Append
 }
 
 # Starting log
@@ -38,6 +38,10 @@ try {
     $bitLockerStatus = Get-BitLockerVolume -MountPoint $osDrive -ErrorAction Stop
     if ($bitLockerStatus.ProtectionStatus -eq "On" -and $bitLockerStatus.EncryptionPercentage -eq 100) {
         Write-Log "BitLocker already enabled on $osDrive"
+    }
+    elseif ($bitLockerStatus.ProtectionStatus -eq "Off" -and $bitLockerStatus.EncryptionPercentage -gt 0){
+        # Seeing windows enabling bitlocker, but without a TPMPIN, it's not showing protection status "On"
+        Write-Log "Bitlocker Encrypted but Protection Status not showing On.  Proceed to adding TPMPIN"
     }
     else {
         Write-Log "Enabling BitLocker on $osDrive"

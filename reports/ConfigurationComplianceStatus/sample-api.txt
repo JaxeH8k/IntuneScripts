@@ -1,0 +1,32 @@
+# https://graph.microsoft.com/beta/deviceManagement/reports/getConfigurationPolicyDevicesReport
+<#
+{
+    "select":[
+        "UPN",
+        "ReportStatus",
+        "AssignmentFilterIds",
+        "PspdpuLastModifiedTimeUtc",
+        "IntuneDeviceId",
+        "UnifiedPolicyPlatformType",
+        "UserId",
+        "PolicyStatus",
+        "PolicyBaseTypeName"
+        "DeviceName",
+    ],
+    "skip":0,
+    "top":50,
+    "filter":"(
+            (PolicyBaseTypeName eq 'Microsoft.Management.Services.Api.DeviceConfiguration') 
+            or 
+            (PolicyBaseTypeName eq 'DeviceManagementConfigurationPolicy') 
+            or 
+            (PolicyBaseTypeName eq 'DeviceConfigurationAdmxPolicy')
+            ) 
+        and 
+        (PolicyId eq '1517ae9a-5a82-49e0-bcf0-5afb74cf483f')",
+"orderBy":[]
+}
+#>
+# URL: https://graph.microsoft.com/beta/deviceManagement/reports/exportJobs('DeviceStatusesByConfigurationProfileWithPF_86b85520-dd85-45b5-9dfc-d632ad716306')
+
+

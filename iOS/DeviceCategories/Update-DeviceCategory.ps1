@@ -76,7 +76,7 @@ $reportFile = (Get-ChildItem $tempFileParent\*.csv | Select-Object -First 1).ful
 # Read the CSV and filter for uncategorized iOS devices
 $devices = Import-Csv -Path $reportFile
 $uncategorizedDevices = $devices | Where-Object {
-    $_.'Category' -eq "" -or $_.'Category' -eq "Uncategorized"
+    ($_.'Category' -eq "" -or $_.'Category' -eq "Uncategorized") -and ($_.'Device Name' -match 'iPad|J_')
 }
 
 if($uncategorizedDevices.count -gt 0){
