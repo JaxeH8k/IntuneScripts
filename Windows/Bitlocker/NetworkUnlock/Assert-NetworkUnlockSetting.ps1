@@ -33,4 +33,4 @@ foreach($regPath in $regPaths){
     New-Item -Path $regPath -Force
 }
 Set-ItemProperty -Path $regPaths[0] -Name "Blob" -Value $Blob -Type Binary
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\FVE_NKP" -Name "OSManageNKP" -Value 1 -Type DWord
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\FVE" -Name "OSManageNKP" -Value 1 -Type DWord
