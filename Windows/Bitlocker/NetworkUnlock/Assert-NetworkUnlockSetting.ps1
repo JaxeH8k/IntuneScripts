@@ -9,7 +9,7 @@ $base64Cert = '' # your base64 encoded certificate (see comment above)
 $certBytes = [System.Convert]::FromBase64String($base64Cert)
 $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList (,$certBytes)
 
-# Construct the GPO-style Blob (header + thumbprint + certificate data)
+# Construct the GPO-style Blob (header + prefix (+ cert length) + certificate data)
 $certData = $cert.RawData
 $certLength = $certData.Length
 $certLengthBytes = [BitConverter]::GetBytes($certLength)
@@ -25,12 +25,12 @@ for ($i = 0; $i -lt $Thumbprint.Length; $i += 2) {
 
 $Blob = $Header + $ThumbprintBytes + $prefix + $CertData
 $regPaths = @(
-    "HKLM:\SOFTWARE\Policies\Microsoft\SystemCertificates\FVE\Certificates\$thumbprint",
-    "HKLM:\SOFTWARE\Policies\Microsoft\SystemCertificates\FVE\CRLs",
-    "HKLM:\SOFTWARE\Policies\Microsoft\SystemCertificates\FVE\CTLs"
+    "HKLM:\SOFTWARE\Policies\Microsoft\SystemCertificates\FVE_NKP\Certificates\$thumbprint",
+    "HKLM:\SOFTWARE\Policies\Microsoft\SystemCertificates\FVE_NKP\CRLs",
+    "HKLM:\SOFTWARE\Policies\Microsoft\SystemCertificates\FVE_NKP\CTLs"
 )
 foreach($regPath in $regPaths){
     New-Item -Path $regPath -Force
 }
 Set-ItemProperty -Path $regPaths[0] -Name "Blob" -Value $Blob -Type Binary
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\FVE" -Name "OSManageNKP" -Value 1 -Type DWord
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\FVE_NKP" -Name "OSManageNKP" -Value 1 -Type DWord
