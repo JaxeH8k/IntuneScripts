@@ -30,3 +30,9 @@ $base64Cert = '{base64Goodness}' # your base64 encoded certificate (see comment 
 At this point the script is ready to deploy to your endpoints.  
 
 Note: Have only tested this with self-signed certificates containing no CRL's or CA & SubCA's that would exist in a production environment.  Testing with a full certificate chain and CRL's is on my to do list.
+
+## In case you wanted to know...
+Link to Didier Stevens post explaining how windows stores certificates in the registry
+
+https://blog.nviso.eu/2019/08/28/extracting-certificates-from-the-windows-registry/
+
