@@ -72,12 +72,16 @@ $regPaths = @(
     "HKLM:\SOFTWARE\Policies\Microsoft\SystemCertificates\FVE_NKP\CTLs"
 )
 foreach($regPath in $regPaths){
-    Write-Log 'Create Regsitry Paths for Network Unlock'
-    try{
-        New-Item -Path $regPath -Force -ErrorAction Stop
-        Write-Log "Created $regPath succesfully."
-    }catch{
-        Write-Log "$_" -logLevel 'Error'
+    if(! (test-Path -path $regPath)){
+        try{
+            New-Item -Path $regPath -Force -ErrorAction Stop
+            Write-Log "Created $regPath succesfully."
+        }catch{
+            Write-Log "$_" -logLevel 'Error'
+            Write-Log "Failed to create $regPath" -logLevel 'Error'
+        }
+    }else{
+        Write-Log "$regPath already exists. Skipping..."
     }
 }
 try{
