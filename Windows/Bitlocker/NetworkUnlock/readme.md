@@ -29,4 +29,4 @@ $base64Cert = '{base64Goodness}' # your base64 encoded certificate (see comment 
 ```
 At this point the script is ready to deploy to your endpoints.  
 
-Note: Recommended you add logging and setting up exit codes that work for your environment.
+Note: Have only tested this with self-signed certificates containing no CRL's or CA & SubCA's that would exist in a production environment.  Testing with a full certificate chain and CRL's is on my to do list.
