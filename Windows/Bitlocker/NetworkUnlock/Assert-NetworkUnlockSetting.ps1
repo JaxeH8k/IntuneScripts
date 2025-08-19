@@ -9,6 +9,7 @@
 $base64Cert = '' # your base64 encoded certificate (see comment above)
 
 # logging
+$logLocation = "C:\programdata\DGTK\Bitlocker\Enable-NetworkUnlock $(get-date -format 'yyyy-MM-dd HH:mm:ss').log"
 function Write-Log {
     param(
         [string]$message,
@@ -16,10 +17,9 @@ function Write-Log {
     )
 
     $eventTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss.ffff"
-    "$eventTime | $logLevel | $message" | Tee-Object -FilePath $logPath -Append
+    "$eventTime | $logLevel | $message" | Tee-Object -FilePath $logLocation -Append
 }
 
-$logLocation = "C:\programdata\DGTK\Bitlocker\Enable-NetworkUnlock $(get-date -format 'yyyy-MM-dd HH:mm:ss').log"
 # test if parent directory exists
 if(! (Test-Path (Split-Path $logLocation -Parent))){
     New-Item (Split-Path $logLocation -Parent) -ItemType Directory -Force
