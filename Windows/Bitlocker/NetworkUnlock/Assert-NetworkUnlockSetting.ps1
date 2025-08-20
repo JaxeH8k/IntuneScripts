@@ -9,7 +9,7 @@
 $base64Cert = '' # your base64 encoded certificate (see comment above)
 
 # logging
-$logLocation = "C:\programdata\DGTK\Bitlocker\Enable-NetworkUnlock $(get-date -format 'yyyy-MM-dd HH:mm:ss').log"
+$logLocation = "C:\programdata\DGTK\Bitlocker\Enable-NetworkUnlock $(get-date -format 'yyyy-MM-dd HH-mm-ss').log"
 function Write-Log {
     param(
         [string]$message,
