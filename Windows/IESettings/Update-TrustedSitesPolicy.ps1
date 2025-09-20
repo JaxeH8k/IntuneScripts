@@ -26,7 +26,7 @@ $children = @(
 )
 
 
-foreach ($child in $children) {
+foreach ($child in $children[0..501]) {
      $childrenList += @{
           "settingValueTemplateReference" = $null
           children                        = @(
