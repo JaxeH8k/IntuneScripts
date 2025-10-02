@@ -4,5 +4,5 @@ $policies = @(
 )
 
 foreach($stig in $policies){
-    ./Get-IntuneConfigurationPerSettingStatus.ps1 -policyId $stig
+    ./Get-IntuneConfigurationPerSettingStatus.ps1 -policyId $stig -outputFolder "~/Downloads/Src/PerSetting/"
 }

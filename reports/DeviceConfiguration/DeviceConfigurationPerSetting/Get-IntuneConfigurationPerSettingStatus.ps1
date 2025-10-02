@@ -1,6 +1,29 @@
 param(
-    $policyId
+    $policyId,
+    $outputFolder
 )
+
+if (! (Test-Path $outputFolder)){
+    try {
+        New-Item $outputFolder -ItemType Directory -ErrorAction Stop
+    } 
+    catch{
+        Write-Output "$_"
+        Write-Output "Failed to create director $($outputFolder) ... Param should be a folder path. Exit 1"
+        Exit 1
+    }
+}
+
+# test path is writeable // basic touch test, exit if fail
+try {
+    New-Item -Name 'TestFile.txt' -Path $outputFolder -ErrorAction Stop
+    Remove-Item (join-path $outputFolder 'TestFile.txt')
+}
+catch {
+    Write-Output "$_"
+    Write-Output "Failed to write test file at location.  Exit 1"
+    Exit 1
+}
 
 $graphSplat = @{
     Method = 'POST'
@@ -34,4 +57,4 @@ foreach($record in $jsonReq.Values){
     $report += $thisObj
 }
 
-$report | Export-Csv "$policyId.csv" -NoTypeInformation
+$report | Export-Csv (join-path $outputFolder "$policyId.csv") -NoTypeInformation
