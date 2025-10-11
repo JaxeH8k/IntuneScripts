@@ -10,7 +10,7 @@ if (! (Test-Path $outputFolder)){
         New-Item $outputFolder -ItemType Directory -ErrorAction Stop
     } 
     catch{
-        Write-Output "$_"
+        throw "$_"
         Write-Output "Failed to create director $($outputFolder) ... Param should be a folder path. Exit 1"
         Exit 1
     }
@@ -18,11 +18,11 @@ if (! (Test-Path $outputFolder)){
 
 # test path is writeable // basic touch test, exit if fail
 try {
-    New-Item -Name 'TestFile.txt' -Path $outputFolder -ErrorAction Stop
+    New-Item -Name 'TestFile.txt' -Path $outputFolder -ErrorAction Stop | Out-Null
     Remove-Item (join-path $outputFolder 'TestFile.txt')
 }
 catch {
-    Write-Output "$_"
+    throw "$_"
     Write-Output "Failed to write test file at location.  Exit 1"
     Exit 1
 }
@@ -45,8 +45,8 @@ try {
     Write-Output "Requestion Made Succesfully... proceed to query and wait for report to become available."
 }
 catch{
-    Write-Output "Graph Request No Bueno!"
     throw "$_"
+    Write-Output "Graph Request No Bueno!"
 }
 
 Start-Sleep 15
