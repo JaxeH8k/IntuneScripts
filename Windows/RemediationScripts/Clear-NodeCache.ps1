@@ -33,33 +33,38 @@ try {
     exit 1
 }
 
-# Get the Intune Provider ID from DMClient
+# Get the Intune Enrollment GUID from registry
 try {
-    Write-Log "Attempting to locate Intune Provider ID..." "INFO"
-    $DMClientPath = "C:\ProgramData\Microsoft\DMClient"
+    Write-Log "Attempting to locate Intune Enrollment GUID..." "INFO"
+    $EnrollmentsPath = "HKLM:\SOFTWARE\Microsoft\Enrollments"
     
-    if (-not (Test-Path $DMClientPath)) {
-        Write-Log "DMClient path not found: $DMClientPath" "ERROR"
+    if (-not (Test-Path $EnrollmentsPath)) {
+        Write-Log "Enrollments registry path not found: $EnrollmentsPath" "ERROR"
         exit 1
     }
     
-    $ProviderID = (Get-ChildItem -Path $DMClientPath -Directory | Where-Object { $_.Name -match "MS DM Server" }).Name
+    # Find the Intune enrollment by looking for ProviderID = "MS DM Server"
+    $EnrollmentGUIDs = Get-ChildItem -Path $EnrollmentsPath | Where-Object {
+        $providerID = (Get-ItemProperty -Path $_.PSPath -Name "ProviderID" -ErrorAction SilentlyContinue).ProviderID
+        $providerID -eq "MS DM Server"
+    }
     
-    if (-not $ProviderID) {
-        Write-Log "Could not find Intune Provider ID in $DMClientPath" "ERROR"
+    if (-not $EnrollmentGUIDs -or $EnrollmentGUIDs.Count -eq 0) {
+        Write-Log "Could not find Intune enrollment (ProviderID = 'MS DM Server') in registry" "ERROR"
         exit 1
     }
     
-    Write-Log "Found Provider ID: $ProviderID" "SUCCESS"
+    $EnrollmentGUID = $EnrollmentGUIDs[0].PSChildName
+    Write-Log "Found Enrollment GUID: $EnrollmentGUID" "SUCCESS"
 } catch {
-    Write-Log "Error locating Provider ID: $_" "ERROR"
+    Write-Log "Error locating Enrollment GUID: $_" "ERROR"
     exit 1
 }
 
 # Define NodeCache registry paths
 $NodeCachePaths = @(
-    "HKLM:\SOFTWARE\Microsoft\Provisioning\NodeCache\CSP\Device\$ProviderID",
-    "HKLM:\SOFTWARE\Microsoft\Provisioning\NodeCache\ProvisioningStatus\$ProviderID"
+    "HKLM:\SOFTWARE\Microsoft\Provisioning\NodeCache\CSP\Device\MS DM Server",
+    "HKLM:\SOFTWARE\Microsoft\Provisioning\NodeCache\ProvisioningStatus\MS DM Server"
 )
 
 # Remove NodeCache registry keys
