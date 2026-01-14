@@ -28,7 +28,8 @@ try {
         Write-Log "Created C:\temp directory" "SUCCESS"
     }
     Write-Log "========== NodeCache Reset Started ==========" "INFO"
-} catch {
+}
+catch {
     Write-Host "Failed to create log directory: $_" -ForegroundColor Red
     exit 1
 }
@@ -56,7 +57,8 @@ try {
     
     $EnrollmentGUID = $EnrollmentGUIDs[0].PSChildName
     Write-Log "Found Enrollment GUID: $EnrollmentGUID" "SUCCESS"
-} catch {
+}
+catch {
     Write-Log "Error locating Enrollment GUID: $_" "ERROR"
     exit 1
 }
@@ -76,10 +78,12 @@ foreach ($path in $NodeCachePaths) {
             Write-Log "Path exists, attempting to remove..." "WARNING"
             Remove-Item -Path $path -Recurse -Force -ErrorAction Stop
             Write-Log "Successfully removed: $path" "SUCCESS"
-        } else {
+        }
+        else {
             Write-Log "Path not found (may not exist): $path" "INFO"
         }
-    } catch {
+    }
+    catch {
         Write-Log "Error removing $path : $_" "ERROR"
     }
 }
@@ -89,14 +93,15 @@ try {
     Write-Log "Attempting to restart IntuneManagementExtension service..." "INFO"
     
     $service = Get-Service -Name IntuneManagementExtension -ErrorAction Stop
-    Write-Log "Service current status: $($service.Status)" "INFO"
+    Write-Log "IntuneManagementExtension Service current status: $($service.Status)" "INFO"
     
     Restart-Service -Name IntuneManagementExtension -Force -ErrorAction Stop
     
-    Start-Sleep -Seconds 2
+    Start-Sleep -Seconds 15
     $serviceAfter = Get-Service -Name IntuneManagementExtension
-    Write-Log "Service restarted successfully. New status: $($serviceAfter.Status)" "SUCCESS"
-} catch {
+    Write-Log "IntuneManagementExtension Service restarted successfully. New status: $($serviceAfter.Status)" "SUCCESS"
+}
+catch {
     Write-Log "Error restarting IntuneManagementExtension service: $_" "ERROR"
 }
 
@@ -104,16 +109,19 @@ try {
 try {
     Write-Log "Attempting to trigger MDM sync..." "INFO"
     
-    $pushLaunchTask = Get-ScheduledTask | Where-Object { $_.TaskName -like "*PushLaunch*" }
-    
-    if ($pushLaunchTask) {
-        Write-Log "Found scheduled task: $($pushLaunchTask.TaskName)" "INFO"
-        Start-ScheduledTask -InputObject $pushLaunchTask -ErrorAction Stop
-        Write-Log "MDM sync task started successfully" "SUCCESS"
-    } else {
+    $pushLaunchTasks = Get-ScheduledTask | Where-Object { $_.TaskName -like "*PushLaunch*" }
+    if ($pushLaunchTasks) {
+        foreach ($pushLaunchTask in $pushLaunchTasks) {
+            Write-Log "Found scheduled task: $($pushLaunchTask.TaskName)" "INFO"
+            Start-ScheduledTask -InputObject $pushLaunchTask -ErrorAction Stop
+            Write-Log "MDM sync task started successfully" "SUCCESS"
+        }
+    }
+    else {
         Write-Log "PushLaunch scheduled task not found" "WARNING"
     }
-} catch {
+}
+catch {
     Write-Log "Error triggering MDM sync: $_" "ERROR"
 }
 
