@@ -18,21 +18,21 @@
 @{
 
     # ── Change metadata ────────────────────────────────────────────────────────
-    ChangeId        = 'CHG-2026-NNNN'          # ITSM change request ID
-    ChangeTitle     = 'Config Profile Rollout'  # Short human-readable title
+    ChangeId        = 'CHG-2026-0104'          # ITSM change request ID
+    ChangeTitle     = 'Disable Store App'  # Short human-readable title
     Owner           = 'Jake - Fitaas'        # Change owner name and team
     FleetSize       = 100000                    # Approximate total managed device count
 
     # ── Policy being deployed ──────────────────────────────────────────────────
-    PolicyId        = 'c578f911-e766-444f-be79-6ac0ad6ab40a'    # GUID of the NEW Intune config profile to roll out
-    PolicyName      = 'S-Mime-ADMX-Domains'    # Display name exactly as it appears in Intune
+    PolicyId        = '7556e1cf-a4bc-42e0-af44-6bb08d80f523'    # GUID of the NEW Intune config profile to roll out
+    PolicyName      = 'Turn off the Store application'    # Display name exactly as it appears in Intune
     Platform        = 'Windows 10/11'    # e.g. "Windows 10/11", "macOS", "iOS", "Android"
     AssignedVia     = 'Static Group'    # e.g. "Dynamic AAD group", "Static group", "Enrollment filter"
 
     # Leave OldPolicyId blank ('') if this is a brand-new profile with no predecessor.
     # If you ARE replacing an existing profile, put its GUID here so devices in each
     # ring are excluded from the old profile as they receive the new one.
-    OldPolicyId     = '8198f9e9-af13-450a-873e-9003aef95624'
+    OldPolicyId     = ''
 
     # ── Deployment rings ───────────────────────────────────────────────────────
     # Each ring needs:
@@ -43,8 +43,8 @@
     Rings = @(
         @{
             Number      = 0
-            GroupId     = ''                        # Ring 0 group Object ID
-            GroupName   = "Intune-$('CHG-2026-NNNN')-Ring0"
+            GroupId     = '50e373cf-8c15-4bd7-a2e1-ad95c73e40b2'                        # Ring 0 group Object ID
+            GroupName   = "Bitlocker-TC2"
             Description = 'IT / Pilot'
             SoakDays    = 3
         },
@@ -57,15 +57,15 @@
         },
         @{
             Number      = 2
-            GroupId     = ''                        # Ring 2 group Object ID
-            GroupName   = "Intune-$('CHG-2026-NNNN')-Ring2"
+            GroupId     = 'f82e911f-309e-4589-82d9-e1838b48bf65'                        # Ring 2 group Object ID
+            GroupName   = "Bitlocker - TC5"
             Description = 'Limited Broad'
             SoakDays    = 7
         },
         @{
             Number      = 3
-            GroupId     = ''                        # Ring 3 group Object ID
-            GroupName   = "Intune-$('CHG-2026-NNNN')-Ring3"
+            GroupId     = '2682e7e2-daf3-4d7e-999a-7cb8bd814cde'                        # Ring 3 group Object ID
+            GroupName   = "All Corporate Devices"
             Description = 'Broad'
             SoakDays    = 7
         }

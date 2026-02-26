@@ -130,11 +130,8 @@ function Get-ExistingAssignments {
     param([string]$ListUri)
     try {
         $val = (Invoke-MgGraphRequest -Method GET -Uri $ListUri).value
-        # Guard: when a policy has no assignments .value is $null.
-        # @($null) would create a 1-element array containing $null, which
-        # causes Set-StrictMode to throw when Where-Object tries $_.target.
-        if ($null -like $val) { return @() }
-        return @($val)
+        if ($null -eq $val) { return @() }
+        return @($val | Where-Object { $null -ne $_ })
     }
     catch { Write-Warn "Could not read existing assignments. Proceeding with empty base."; return @() }
 }
@@ -147,7 +144,12 @@ function New-GroupAssignmentTarget {
 
 function Set-PolicyAssignments {
     param([string]$AssignUri, [array]$Assignments, [string]$PolicyDisplayName, [string]$Action)
-    $body = @{ assignments = $Assignments } | ConvertTo-Json -Depth 10
+    # Build the JSON body manually to guarantee assignments is always a JSON array.
+    # ConvertTo-Json in PowerShell 5.1 unwraps single-element arrays inside hashtables,
+    # producing {"assignments":{...}} instead of {"assignments":[{...}]}, which causes
+    # a Graph API ModelValidationFailure.
+    $assignmentsJson = ($Assignments | ForEach-Object { ConvertTo-Json $_ -Depth 9 -Compress }) -join ','
+    $body = "{`"assignments`":[$assignmentsJson]}"
     if ($PSCmdlet.ShouldProcess($PolicyDisplayName, $Action)) {
         Invoke-MgGraphRequest -Method POST -Uri $AssignUri -Body $body -ContentType 'application/json' | Out-Null
         return $true
@@ -231,9 +233,10 @@ if ($workOldPolicyId) {
 #region --- Assign ring group as Include on new policy ------------------------
 
 Write-Step "Reading existing assignments on target policy..."
-# [array] cast ensures .Count is always valid even when the API returns a single object
-# rather than a collection (which happens when exactly one assignment exists).
-[array]$existingAssignments = Get-ExistingAssignments -ListUri $targetPolicy.ListUri
+# @() wrapper ensures we get an empty array (not $null) when the function returns no output.
+# In PowerShell, a function returning @() produces no pipeline output — callers receive $null
+# unless the call is wrapped in @(...), which collects output into an array.
+[array]$existingAssignments = @(Get-ExistingAssignments -ListUri $targetPolicy.ListUri)
 
 $alreadyIncluded = $existingAssignments | Where-Object {
     $_.target.'@odata.type' -eq '#microsoft.graph.groupAssignmentTarget' -and $_.target.groupId -eq $workGroupId
@@ -258,7 +261,7 @@ if ($alreadyIncluded) {
 
 if ($workOldPolicyId -and $oldPolicy) {
     Write-Step "Reading existing assignments on old policy..."
-    [array]$oldAssignments = Get-ExistingAssignments -ListUri $oldPolicy.ListUri
+    [array]$oldAssignments = @(Get-ExistingAssignments -ListUri $oldPolicy.ListUri)
 
     $alreadyExcluded = $oldAssignments | Where-Object {
         $_.target.'@odata.type' -eq '#microsoft.graph.exclusionGroupAssignmentTarget' -and $_.target.groupId -eq $workGroupId
