@@ -4,19 +4,17 @@
 
 .DESCRIPTION
     Correlates two data sources on the local device:
-      1. Windows Event Log:
+      1. Windows Event Log (both channels queried and merged — session events
+         live in /Admin on older builds and in /Sync on newer builds):
          Microsoft-Windows-DeviceManagement-Enterprise-Diagnostics-Provider/Admin
+         Microsoft-Windows-DeviceManagement-Enterprise-Diagnostics-Provider/Sync
            - Event ID 208 : OMA-DM session started (includes Origin = trigger source)
            - Event ID 209 : OMA-DM session ended with status (success or error HRESULT)
            - Event ID 201 : OMA-DM message failed to be sent (transport-level error)
            - Event ID 404 : MDM ConfigurationManager command failure (CSP/policy errors
                             that occurred during the sync window)
-         Microsoft-Windows-DeviceManagement-Enterprise-Diagnostics-Provider/Sync
-           - Queried generically (all event IDs) if the channel exists on the device.
-             <VERIFY_THIS>: This channel is not present in Microsoft's documented
-             channel list (Admin/Operational/Debug); availability and event ID
-             schema may vary by OS build. The script auto-detects it and warns
-             if it is missing or disabled.
+           - Other /Sync channel events (200, 202, 205, 206, 257, 258, 259...) are
+             collected as per-session context columns.
       2. Registry:
            - HKLM:\SOFTWARE\Microsoft\Enrollments\<GUID>          (enrollment metadata)
            - HKLM:\SOFTWARE\Microsoft\Provisioning\OMADM\Accounts\<GUID>\Protected\ConnInfo
@@ -154,19 +152,38 @@ if ($Enrollments.Count -eq 0) {
 
 #region --- 2. Event log: reconstruct sync sessions ---------------------------
 
-Write-Verbose "Querying '$LogName' for the last $Days day(s)..."
+Write-Verbose "Querying MDM event channels for the last $Days day(s)..."
 
 $idsToQuery = @($SessionStartId, $SessionEndId, $SendFailId)
 if ($IncludePolicyErrors) { $idsToQuery += $CspFailId }
 
-$events = Get-WinEvent -FilterHashtable @{
-    LogName   = $LogName
-    Id        = $idsToQuery
-    StartTime = $StartTime
-} -ErrorAction SilentlyContinue | Sort-Object TimeCreated
+# Session events (208/209/201/404) can live in /Admin OR /Sync depending on
+# OS build — newer builds write OMA-DM session events to the dedicated /Sync
+# channel. Query every channel that exists and merge.
+$SessionLogCandidates = @($LogName, $SyncLogName)
+
+$events = foreach ($candidate in $SessionLogCandidates) {
+    $logInfo = Get-WinEvent -ListLog $candidate -ErrorAction SilentlyContinue
+    if (-not $logInfo) {
+        Write-Verbose "Channel '$candidate' not present on this device."
+        continue
+    }
+    Get-WinEvent -FilterHashtable @{
+        LogName   = $candidate
+        Id        = $idsToQuery
+        StartTime = $StartTime
+    } -ErrorAction SilentlyContinue
+}
+
+# Dedupe in case a build logs the same event to both channels
+$events = $events |
+    Sort-Object TimeCreated |
+    Group-Object { '{0:o}|{1}|{2}' -f $_.TimeCreated, $_.Id, $_.Message } |
+    ForEach-Object { $_.Group[0] }
 
 if (-not $events) {
-    Write-Warning "No events found in '$LogName' for the last $Days day(s)."
+    Write-Warning ("No session events (IDs: {0}) found in channels [{1}] for the last {2} day(s)." -f
+        ($idsToQuery -join ', '), ($SessionLogCandidates -join '; '), $Days)
 }
 
 # Bucket events by type for correlation
@@ -177,31 +194,35 @@ $cspFails    = @($events | Where-Object Id -eq $CspFailId)
 
 #endregion
 
-#region --- 2b. Event log: Sync channel ---------------------------------------
+#region --- 2b. Event log: Sync channel context events -------------------------
 
-# The /Sync channel is not in Microsoft's documented channel list for this
-# provider (Admin/Operational/Debug), so detect it rather than assume it.
-# <VERIFY_THIS>: Event ID schema for this channel is undocumented; all events
-# in the time window are collected and correlated by timestamp only.
+# On builds that have the /Sync channel, it carries the OMA-DM session events
+# (208/209 — handled above) PLUS protocol-level events observed in the field:
+# 200, 202, 205, 206, 257, 258, 259. These are collected here as per-session
+# context. <VERIFY_THIS>: Microsoft does not publish a schema for this channel;
+# the IDs above were observed on production Win11 devices. Per-ID meanings
+# (e.g. 200 = OMA-DM message sent, 202 = response received) should be confirmed
+# against your reference device before relying on them in reporting logic.
 
 $syncChannelEvents = @()
 $syncLog = Get-WinEvent -ListLog $SyncLogName -ErrorAction SilentlyContinue
 
 if (-not $syncLog) {
-    Write-Warning "Channel '$SyncLogName' does not exist on this device. Skipping. (Documented channels for this provider are Admin, Operational, and Debug.)"
+    Write-Verbose "Channel '$SyncLogName' does not exist on this device. Context columns will be empty."
 }
 elseif (-not $syncLog.IsEnabled) {
-    Write-Warning "Channel '$SyncLogName' exists but is disabled. Skipping. Enable it with: wevtutil set-log `"$SyncLogName`" /enabled:true"
+    Write-Warning "Channel '$SyncLogName' exists but is disabled. Enable it with: wevtutil set-log `"$SyncLogName`" /enabled:true"
 }
 else {
-    Write-Verbose "Querying '$SyncLogName' for the last $Days day(s)..."
+    Write-Verbose "Querying '$SyncLogName' (context events) for the last $Days day(s)..."
     $syncChannelEvents = @(Get-WinEvent -FilterHashtable @{
         LogName   = $SyncLogName
         StartTime = $StartTime
-    } -ErrorAction SilentlyContinue)
+    } -ErrorAction SilentlyContinue |
+        Where-Object { $_.Id -notin $idsToQuery })   # session events already handled in 2a
 
     if (-not $syncChannelEvents) {
-        Write-Verbose "No events found in '$SyncLogName' for the time window."
+        Write-Verbose "No additional context events found in '$SyncLogName' for the time window."
     }
 }
 
