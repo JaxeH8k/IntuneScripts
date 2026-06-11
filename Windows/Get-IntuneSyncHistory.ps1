@@ -11,6 +11,12 @@
            - Event ID 201 : OMA-DM message failed to be sent (transport-level error)
            - Event ID 404 : MDM ConfigurationManager command failure (CSP/policy errors
                             that occurred during the sync window)
+         Microsoft-Windows-DeviceManagement-Enterprise-Diagnostics-Provider/Sync
+           - Queried generically (all event IDs) if the channel exists on the device.
+             <VERIFY_THIS>: This channel is not present in Microsoft's documented
+             channel list (Admin/Operational/Debug); availability and event ID
+             schema may vary by OS build. The script auto-detects it and warns
+             if it is missing or disabled.
       2. Registry:
            - HKLM:\SOFTWARE\Microsoft\Enrollments\<GUID>          (enrollment metadata)
            - HKLM:\SOFTWARE\Microsoft\Provisioning\OMADM\Accounts\<GUID>\Protected\ConnInfo
@@ -48,6 +54,7 @@ param(
 #region --- Constants ---------------------------------------------------------
 
 $LogName        = 'Microsoft-Windows-DeviceManagement-Enterprise-Diagnostics-Provider/Admin'
+$SyncLogName    = 'Microsoft-Windows-DeviceManagement-Enterprise-Diagnostics-Provider/Sync'
 $SessionStartId = 208
 $SessionEndId   = 209
 $SendFailId     = 201
@@ -168,6 +175,49 @@ $endEvents   = [System.Collections.Generic.List[object]]@($events | Where-Object
 $sendFails   = @($events | Where-Object Id -eq $SendFailId)
 $cspFails    = @($events | Where-Object Id -eq $CspFailId)
 
+#endregion
+
+#region --- 2b. Event log: Sync channel ---------------------------------------
+
+# The /Sync channel is not in Microsoft's documented channel list for this
+# provider (Admin/Operational/Debug), so detect it rather than assume it.
+# <VERIFY_THIS>: Event ID schema for this channel is undocumented; all events
+# in the time window are collected and correlated by timestamp only.
+
+$syncChannelEvents = @()
+$syncLog = Get-WinEvent -ListLog $SyncLogName -ErrorAction SilentlyContinue
+
+if (-not $syncLog) {
+    Write-Warning "Channel '$SyncLogName' does not exist on this device. Skipping. (Documented channels for this provider are Admin, Operational, and Debug.)"
+}
+elseif (-not $syncLog.IsEnabled) {
+    Write-Warning "Channel '$SyncLogName' exists but is disabled. Skipping. Enable it with: wevtutil set-log `"$SyncLogName`" /enabled:true"
+}
+else {
+    Write-Verbose "Querying '$SyncLogName' for the last $Days day(s)..."
+    $syncChannelEvents = @(Get-WinEvent -FilterHashtable @{
+        LogName   = $SyncLogName
+        StartTime = $StartTime
+    } -ErrorAction SilentlyContinue)
+
+    if (-not $syncChannelEvents) {
+        Write-Verbose "No events found in '$SyncLogName' for the time window."
+    }
+}
+
+function Format-SyncChannelEvent {
+    param($Event)
+    $level = if ($Event.LevelDisplayName) { $Event.LevelDisplayName } else { "Level$($Event.Level)" }
+    # First line of the message only, truncated, to keep the CSV cell sane
+    $msg = ($Event.Message -split "`r?`n")[0]
+    if ($msg.Length -gt 200) { $msg = $msg.Substring(0, 200) + '...' }
+    "[{0}] Id={1} ({2}): {3}" -f $Event.TimeCreated.ToString('HH:mm:ss'), $Event.Id, $level, $msg
+}
+
+#endregion
+
+#region --- 2c. Reconstruct sync sessions -------------------------------------
+
 $Sessions = foreach ($start in $startEvents) {
 
     $enrollGuid = Get-EventField -Message $start.Message -FieldName 'EnrollmentID'
@@ -208,6 +258,12 @@ $Sessions = foreach ($start in $startEvents) {
         $_.TimeCreated -ge $start.TimeCreated -and $_.TimeCreated -le $windowEnd
     }
 
+    # /Sync channel events falling inside this session's window (timestamp-correlated)
+    $windowSyncEvents = @($syncChannelEvents | Where-Object {
+        $_.TimeCreated -ge $start.TimeCreated -and $_.TimeCreated -le $windowEnd
+    })
+    $windowSyncErrors = @($windowSyncEvents | Where-Object { $_.Level -in 1, 2, 3 })  # Critical/Error/Warning
+
     $transportErrors = ($windowSendFails | ForEach-Object {
         if ($_.Message -match 'Result:\s*\((.+?)\)') { $Matches[1] } else { $_.Message }
     } | Select-Object -Unique) -join ' | '
@@ -218,7 +274,7 @@ $Sessions = foreach ($start in $startEvents) {
         if ($uri) { "$uri => $res" } else { $res }
     } | Select-Object -Unique) -join ' | '
 
-    if ($status -eq 'Success' -and ($transportErrors -or $policyErrors)) {
+    if ($status -eq 'Success' -and ($transportErrors -or $policyErrors -or $windowSyncErrors.Count -gt 0)) {
         $status = 'Success (with errors during session)'
     }
 
@@ -238,6 +294,8 @@ $Sessions = foreach ($start in $startEvents) {
         EnrolledUPN             = $enrollInfo.UPN
         TransportErrors_Evt201  = $transportErrors
         PolicyErrors_Evt404     = $policyErrors
+        SyncChannel_EventCount  = $windowSyncEvents.Count
+        SyncChannel_Errors      = (($windowSyncErrors | ForEach-Object { Format-SyncChannelEvent $_ }) -join ' | ')
         Reg_LastSyncAttempt     = $enrollInfo.LastSyncAttempt
         Reg_LastSyncSuccess     = $enrollInfo.LastSyncSuccess
     }
