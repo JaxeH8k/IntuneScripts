@@ -17,6 +17,4 @@ Keep ADMXIngest in their own Intune Policy
 Setup OMA-URI policies logically grouped and sepaate of the Ingest Policy.
 
 Assign Ingest first
-Assign policies referencing the {App} afterward.
-
-
+Assign policies referencing the {Application} afterward.
