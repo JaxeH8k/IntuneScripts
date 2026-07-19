@@ -11,3 +11,12 @@ Avoid surgery on the MDM bookkeeping keys. The ingested ADMX metadata lives unde
 Decide per-setting whether stale = harmful. If the tattooed value matches your desired steady state anyway (e.g., a hardening setting you'd keep regardless), it's reasonable to deprioritize cleanup and just document it. If it blocks functionality, conflicts with a successor policy, or shows up in compliance/audit scans, remediate.
 
 One more thing worth doing at your scale: audit which of your ingested ADMX settings even still need ingestion. Microsoft has steadily moved third-party and Windows settings into the Settings Catalog, and migrating off custom ADMX ingestion where possible eliminates this whole class of problem — Settings Catalog removals behave much more predictably.
+
+Ideally - 
+Keep ADMXIngest in their own Intune Policy
+Setup OMA-URI policies logically grouped and sepaate of the Ingest Policy.
+
+Assign Ingest first
+Assign policies referencing the {App} afterward.
+
+
