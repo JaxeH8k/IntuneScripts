@@ -1,0 +1,1582 @@
+<!doctype html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intune Assignment Dashboard</title>
+<style>
+/* ---------- tokens ---------- */
+:root{
+  color-scheme: light;
+  --plane:#f9f9f7; --surface:#fcfcfb; --surface-2:#f2f1ed;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10); --border-2:rgba(11,11,11,.18);
+  --s1:#2a78d6; --s2:#eb6834;
+  --seq-100:#cde2fb; --seq-200:#9ec5f4; --seq-300:#6da7ec; --seq-450:#2a78d6; --seq-600:#184f95; --seq-700:#0d366b;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --shadow:0 1px 2px rgba(11,11,11,.05), 0 4px 16px rgba(11,11,11,.04);
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
+    --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --border-2:rgba(255,255,255,.18);
+    --s1:#3987e5; --s2:#d95926;
+    --seq-100:#173657; --seq-200:#1c5cab; --seq-300:#256abf; --seq-450:#3987e5; --seq-600:#6da7ec; --seq-700:#9ec5f4;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
+  --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --border-2:rgba(255,255,255,.18);
+  --s1:#3987e5; --s2:#d95926;
+  --seq-100:#173657; --seq-200:#1c5cab; --seq-300:#256abf; --seq-450:#3987e5; --seq-600:#6da7ec; --seq-700:#9ec5f4;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.25);
+}
+
+/* ---------- base ---------- */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--plane); color:var(--ink);
+  font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--s1)}
+::selection{background:color-mix(in oklab,var(--s1) 25%,transparent)}
+:focus-visible{outline:2px solid var(--s1); outline-offset:2px; border-radius:4px}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky; top:0; z-index:40; background:var(--surface);
+  border-bottom:1px solid var(--border); box-shadow:var(--shadow);
+}
+.topbar-in{max-width:1400px;margin:0 auto;padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:0 1 auto;max-width:min(58vw,760px)}
+.brand .logo{
+  width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;
+  background:var(--s1);color:#fff;font-weight:700;font-size:13px;letter-spacing:-.4px
+}
+.brand h1{margin:0;font-size:15px;font-weight:650;letter-spacing:-.2px;white-space:nowrap}
+.brand .sub{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center}
+.spacer{flex:1 1 auto}
+.search{position:relative;flex:1 1 220px;min-width:170px;max-width:420px}
+.search input{
+  width:100%;padding:7px 30px 7px 32px;border:1px solid var(--border-2);border-radius:999px;
+  background:var(--plane);
+}
+.search .ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.search kbd{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:11px;
+  border:1px solid var(--border);border-radius:4px;padding:0 4px;background:var(--surface)}
+.search input:not(:placeholder-shown) ~ kbd{display:none}
+.iconbtn{
+  background:var(--surface);border:1px solid var(--border-2);border-radius:8px;padding:6px 10px;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:13px
+}
+.iconbtn:hover{background:var(--surface-2)}
+.menuwrap{position:relative}
+.menu{
+  position:absolute;right:0;top:calc(100% + 6px);z-index:50;background:var(--surface);
+  border:1px solid var(--border-2);border-radius:10px;box-shadow:var(--shadow);min-width:230px;padding:5px;display:none
+}
+.menu.open{display:block}
+.menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:6px;cursor:pointer}
+.menu button:hover{background:var(--surface-2)}
+.menu .hd{padding:7px 10px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.menu hr{border:0;border-top:1px solid var(--border);margin:5px 0}
+
+/* ---------- tabs ---------- */
+.tabs{position:sticky;top:55px;z-index:35;background:var(--plane);border-bottom:1px solid var(--border)}
+.tabs-in{max-width:1400px;margin:0 auto;padding:0 20px;display:flex;gap:2px;overflow-x:auto}
+.tab{
+  background:none;border:0;border-bottom:2px solid transparent;padding:11px 13px;cursor:pointer;
+  color:var(--ink-2);font-weight:520;white-space:nowrap;display:flex;align-items:center;gap:7px
+}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--s1);font-weight:620}
+.tab .n{font-size:11px;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:1px 6px;font-variant-numeric:tabular-nums}
+
+/* ---------- filter bar ---------- */
+.filterbar{background:var(--plane);border-bottom:1px solid var(--border);position:sticky;top:97px;z-index:30}
+.filterbar-in{max-width:1400px;margin:0 auto;padding:10px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fgroup{display:flex;align-items:center;gap:6px}
+.fgroup label{font-size:11.5px;color:var(--muted)}
+select.f,.chipbtn{
+  background:var(--surface);border:1px solid var(--border-2);border-radius:7px;padding:5px 8px;font-size:13px;cursor:pointer
+}
+.chipbtn.on{border-color:var(--s1);box-shadow:inset 0 0 0 1px var(--s1);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--border-2);border-radius:7px;overflow:hidden;background:var(--surface)}
+.seg button{background:none;border:0;padding:5px 10px;cursor:pointer;font-size:13px;color:var(--ink-2);border-right:1px solid var(--border)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--s1);color:#fff;font-weight:560}
+.linkbtn{background:none;border:0;color:var(--s1);cursor:pointer;padding:4px 2px;text-decoration:underline;text-underline-offset:2px;font-size:12.5px}
+.resultline{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---------- layout ---------- */
+main{max-width:1400px;margin:0 auto;padding:20px}
+.view{display:none}
+.view.active{display:block}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);
+}
+.card-hd{padding:14px 16px 0;display:flex;align-items:flex-start;gap:10px}
+.card-hd h3{margin:0;font-size:13.5px;font-weight:620;letter-spacing:-.1px}
+.card-hd p{margin:3px 0 0;font-size:12px;color:var(--muted)}
+.card-bd{padding:14px 16px 16px}
+.grid{display:grid;gap:14px}
+.sec-title{margin:26px 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:620}
+.sec-title:first-child{margin-top:0}
+
+/* ---------- hero + stat tiles ---------- */
+.herorow{display:grid;grid-template-columns:minmax(240px,1fr) 2.2fr;gap:14px}
+@media (max-width:900px){.herorow{grid-template-columns:1fr}}
+.hero{padding:18px 20px;display:flex;flex-direction:column;justify-content:center}
+.hero .lbl{font-size:12px;color:var(--muted)}
+.hero .val{font-size:52px;font-weight:640;letter-spacing:-2px;line-height:1.05;margin:2px 0 4px}
+.hero .note{font-size:12.5px;color:var(--ink-2)}
+.meter{height:8px;border-radius:999px;background:var(--seq-100);overflow:hidden;margin:12px 0 8px;display:flex}
+.meter .fill{background:var(--s1);border-radius:999px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:14px}
+.tile{padding:13px 15px}
+.tile .lbl{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.tile .val{font-size:26px;font-weight:620;letter-spacing:-.8px;margin-top:3px}
+.tile .sub{font-size:11.5px;color:var(--ink-2);margin-top:2px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+
+/* ---------- charts ---------- */
+.chart{margin-top:4px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 12px;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.bars{display:flex;flex-direction:column;gap:7px}
+.barrow{display:grid;grid-template-columns:minmax(90px,180px) 1fr;gap:12px;align-items:center;cursor:default}
+.barrow .cat{font-size:12.5px;color:var(--ink-2);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.barrow .track{position:relative;display:flex;align-items:center;gap:8px;min-height:22px}
+.barstack{display:flex;height:12px;flex:none;max-width:100%}
+.barstack i{height:12px;display:block}
+.barstack i:first-child{border-radius:2px 0 0 2px}
+.barstack i:last-child{border-radius:0 4px 4px 0}
+.barstack i:only-child{border-radius:2px 4px 4px 2px}
+.barstack i + i{margin-left:2px}
+.barrow .v{font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;flex:none}
+.barrow:hover .cat,.barrow:focus-visible .cat{color:var(--ink)}
+.barrow.link{cursor:pointer}
+.tblview{display:none;margin-top:10px}
+.chartcard.showtable .chart{display:none}
+.chartcard.showtable .tblview{display:block}
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.dt th,table.dt td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--grid)}
+table.dt th{color:var(--muted);font-weight:560;font-size:11.5px}
+table.dt td.num,table.dt th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbltoggle{background:none;border:1px solid var(--border-2);border-radius:6px;padding:3px 8px;font-size:11.5px;cursor:pointer;color:var(--ink-2)}
+.tbltoggle:hover{background:var(--surface-2)}
+
+/* ---------- tooltip ---------- */
+#tip{
+  position:fixed;z-index:100;pointer-events:none;opacity:0;transition:opacity .09s;
+  background:var(--surface);color:var(--ink);border:1px solid var(--border-2);border-radius:8px;
+  box-shadow:var(--shadow);padding:8px 10px;font-size:12px;max-width:280px
+}
+#tip.on{opacity:1}
+#tip .t{font-weight:620;margin-bottom:3px}
+#tip .r{color:var(--ink-2);display:flex;gap:10px;justify-content:space-between}
+#tip .r b{font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ---------- expandable rows ---------- */
+.rows{display:flex;flex-direction:column;gap:8px}
+details.row{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
+  overflow:hidden
+}
+details.row[open]{border-color:var(--border-2)}
+details.row > summary{
+  list-style:none;cursor:pointer;padding:11px 14px;display:flex;align-items:center;gap:11px;
+}
+details.row > summary::-webkit-details-marker{display:none}
+details.row > summary:hover{background:var(--surface-2)}
+.caret{flex:none;color:var(--muted);transition:transform .12s;display:grid;place-items:center;width:14px}
+details.row[open] > summary .caret{transform:rotate(90deg)}
+.rowmain{min-width:0;flex:1 1 auto}
+.rowtitle{font-weight:580;letter-spacing:-.1px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rowsub{font-size:11.5px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rowstats{display:flex;gap:6px;align-items:center;flex:none;flex-wrap:wrap;justify-content:flex-end}
+.rowbody{border-top:1px solid var(--border);background:var(--plane);padding:6px 14px 12px}
+
+/* ---------- badges ---------- */
+.b{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;line-height:1;padding:4px 7px;border-radius:6px;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--ink-2);white-space:nowrap;font-weight:520
+}
+.b.inc{color:var(--s1);border-color:color-mix(in oklab,var(--s1) 40%,transparent);background:color-mix(in oklab,var(--s1) 10%,transparent)}
+.b.exc{color:var(--s2);border-color:color-mix(in oklab,var(--s2) 45%,transparent);background:color-mix(in oklab,var(--s2) 12%,transparent)}
+.b.zero{color:var(--muted)}
+.b.warnb{color:var(--ink);border-color:color-mix(in oklab,var(--warn) 55%,var(--border));background:color-mix(in oklab,var(--warn) 16%,transparent)}
+.b.type{background:none;border-color:var(--border-2)}
+.b.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px}
+.b .dot{width:6px;height:6px}
+
+/* ---------- assignment list inside a row ---------- */
+.grp{margin-top:10px}
+.grp > h4{
+  margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  display:flex;align-items:center;gap:7px
+}
+.alist{display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--border)}
+.aitem{
+  background:var(--surface);padding:8px 11px;display:flex;gap:10px;align-items:center;
+  border-left:3px solid transparent
+}
+.aitem.i{border-left-color:var(--s1)}
+.aitem.e{border-left-color:var(--s2)}
+.aitem:hover{background:var(--surface-2)}
+.aitem .nm{flex:1 1 auto;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aitem .nm .meta{color:var(--muted);font-size:11.5px;margin-left:8px}
+.aitem .tags{display:flex;gap:5px;flex:none;flex-wrap:wrap;justify-content:flex-end}
+.jump{background:none;border:0;color:var(--s1);cursor:pointer;padding:0;font:inherit;text-align:left;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.jump:hover{text-decoration:underline}
+.empty{padding:34px 20px;text-align:center;color:var(--muted);font-size:13px}
+.empty b{display:block;color:var(--ink-2);font-size:14px;margin-bottom:4px}
+
+/* ---------- health ---------- */
+.health{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px;align-items:start}
+.hcard{padding:0}
+.hcard summary{list-style:none;cursor:pointer;padding:13px 15px;display:flex;gap:11px;align-items:flex-start}
+.hcard summary::-webkit-details-marker{display:none}
+.hcard summary:hover{background:var(--surface-2)}
+.hicon{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;flex:none;font-size:13px;font-weight:700;color:#fff}
+.hicon.ok{background:var(--good)} .hicon.warn{background:var(--warn);color:#0b0b0b} .hicon.info{background:var(--s1)} .hicon.crit{background:var(--crit)}
+.hcard .ht{font-weight:580;font-size:13.5px}
+.hcard .hd2{font-size:12px;color:var(--muted);margin-top:2px}
+.hcard .hn{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:620;font-size:15px;flex:none}
+.hbody{border-top:1px solid var(--border);padding:8px 15px 13px;max-height:290px;overflow:auto}
+.hbody ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:1px}
+.hbody li{padding:5px 0;border-bottom:1px solid var(--grid);font-size:12.5px;display:flex;gap:8px;align-items:center}
+.hbody li:last-child{border-bottom:0}
+.hbody li .g{margin-left:auto;flex:none}
+
+/* ---------- matrix ---------- */
+.matrixwrap{overflow:auto;max-height:72vh;border-radius:8px;border:1px solid var(--border)}
+table.mx{border-collapse:separate;border-spacing:0;font-size:12px;background:var(--surface)}
+table.mx th,table.mx td{border-right:1px solid var(--grid);border-bottom:1px solid var(--grid)}
+table.mx thead th{
+  position:sticky;top:0;z-index:3;background:var(--surface);vertical-align:bottom;
+  padding:8px 7px;width:96px;min-width:96px;font-size:11px;font-weight:560;color:var(--ink-2);text-align:left;line-height:1.25
+}
+table.mx thead th.corner{left:0;z-index:5;width:210px;min-width:210px;color:var(--muted)}
+table.mx tbody th{
+  position:sticky;left:0;z-index:2;background:var(--surface);text-align:left;padding:6px 10px;font-weight:520;
+  width:210px;min-width:210px;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+table.mx tbody tr:hover th,table.mx tbody tr:hover td{background:var(--surface-2)}
+table.mx td{padding:0;text-align:center;height:30px}
+.cell{
+  width:100%;height:30px;display:grid;place-items:center;font-variant-numeric:tabular-nums;position:relative;
+  font-size:11.5px
+}
+.cell.f{border-radius:3px}
+.cell .ex{position:absolute;top:1px;right:3px;font-size:9px;color:var(--s2);font-weight:700}
+.scale{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);margin-top:10px;flex-wrap:wrap}
+.scale i{width:26px;height:11px;border-radius:2px;display:inline-block}
+
+/* ---------- misc ---------- */
+.banner{
+  display:flex;gap:11px;align-items:flex-start;padding:11px 14px;border-radius:var(--radius);
+  border:1px solid color-mix(in oklab,var(--warn) 45%,var(--border));
+  background:color-mix(in oklab,var(--warn) 10%,transparent);margin-bottom:14px;font-size:13px
+}
+.banner .hicon{margin-top:1px}
+.banner ul{margin:5px 0 0;padding-left:18px;color:var(--ink-2);font-size:12.5px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+.copy{background:none;border:0;color:var(--muted);cursor:pointer;padding:2px 4px;border-radius:4px;font-size:11px}
+.copy:hover{background:var(--surface-2);color:var(--ink)}
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(12px);z-index:200;
+  background:var(--ink);color:var(--plane);padding:9px 16px;border-radius:999px;font-size:13px;
+  opacity:0;transition:.15s;pointer-events:none
+}
+.toast.on{opacity:1;transform:translateX(-50%)}
+footer{max-width:1400px;margin:0 auto;padding:22px 20px 40px;color:var(--muted);font-size:11.5px;
+  display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between;border-top:1px solid var(--border);margin-top:26px}
+
+.srcpill{
+  display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:1px 7px;border-radius:999px;
+  border:1px solid color-mix(in oklab,var(--s1) 45%,transparent);
+  background:color-mix(in oklab,var(--s1) 12%,transparent);color:var(--s1);font-size:11px;font-weight:560;
+  max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle
+}
+.srcpill + .linkbtn{margin-left:7px}
+
+/* import: empty state */
+body.nodata .tabs,body.nodata .filterbar,body.nodata .search,body.nodata .menuwrap{display:none}
+.welcome{max-width:560px;margin:8vh auto 0;padding:34px 32px;text-align:center}
+.welcome .wico{
+  width:46px;height:46px;border-radius:12px;margin:0 auto 14px;display:grid;place-items:center;
+  background:color-mix(in oklab,var(--s1) 12%,transparent);color:var(--s1);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:18px;font-weight:700;
+  border:1px solid color-mix(in oklab,var(--s1) 35%,transparent)
+}
+.welcome h2{margin:0 0 8px;font-size:19px;font-weight:640;letter-spacing:-.3px}
+.welcome p{margin:0 auto;max-width:420px;color:var(--ink-2);font-size:13px;line-height:1.55}
+.bigbtn{
+  margin-top:20px;background:var(--s1);color:#fff;border:0;border-radius:8px;padding:10px 18px;
+  font-size:13.5px;font-weight:560;cursor:pointer
+}
+.bigbtn:hover{filter:brightness(1.07)}
+.hintsmall{margin-top:18px!important;font-size:11.5px!important;color:var(--muted)!important}
+.hintsmall code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+  background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:0 4px
+}
+.imperr{
+  margin-top:16px;padding:9px 12px;border-radius:8px;font-size:12.5px;text-align:left;
+  border:1px solid color-mix(in oklab,var(--crit) 45%,var(--border));
+  background:color-mix(in oklab,var(--crit) 10%,transparent);color:var(--ink)
+}
+
+/* import: drop overlay */
+#dropzone{
+  position:fixed;inset:0;z-index:150;display:none;place-items:center;pointer-events:none;
+  background:color-mix(in oklab,var(--plane) 78%,transparent);backdrop-filter:blur(2px)
+}
+#dropzone.on{display:grid}
+.dzcard{
+  display:grid;place-items:center;gap:12px;padding:40px 56px;border-radius:16px;
+  border:2px dashed color-mix(in oklab,var(--s1) 60%,transparent);
+  background:var(--surface);color:var(--s1);font-size:14.5px;font-weight:560;box-shadow:var(--shadow)
+}
+
+@media print{
+  .topbar,.tabs,.filterbar,.tbltoggle,#tip,.toast{display:none!important}
+  body{background:#fff}
+  details.row{break-inside:avoid}
+  details[open] .rowbody{display:block}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <div class="logo">IA</div>
+      <div style="min-width:0">
+        <h1>Intune Assignment Dashboard</h1>
+        <div class="sub" id="brandsub"></div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="search">
+      <span class="ico" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+      </span>
+      <input id="q" type="search" placeholder="Search policies, groups, IDs…" aria-label="Search" autocomplete="off">
+      <kbd>/</kbd>
+    </div>
+    <input type="file" id="fileinput" accept=".json,application/json" hidden>
+    <button class="iconbtn" id="importbtn" title="Import a JSON export (or drop one on the page)">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.5v-8m0 0L5 5.5m3-3 3 3M2.5 11.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1"/></svg>
+      Import
+    </button>
+    <div class="menuwrap">
+      <button class="iconbtn" id="exportbtn" aria-haspopup="true" aria-expanded="false">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2v8m0 0 3-3m-3 3L5 7M2.5 11.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1"/></svg>
+        Export
+      </button>
+      <div class="menu" id="exportmenu" role="menu">
+        <div class="hd">Data</div>
+        <button data-act="import">Import a JSON export…</button>
+        <hr>
+        <div class="hd">Current filter selection</div>
+        <button data-act="csv-assignments">Assignments → CSV</button>
+        <button data-act="csv-policies">Policies → CSV</button>
+        <button data-act="csv-groups">Groups → CSV</button>
+        <hr>
+        <div class="hd">Full data</div>
+        <button data-act="json">Loaded dataset as JSON</button>
+        <button data-act="print">Print / Save as PDF</button>
+      </div>
+    </div>
+    <button class="iconbtn" id="themebtn" title="Toggle theme (t)" aria-label="Toggle theme"><span id="themeico">◐</span> <span id="themelbl">System</span></button>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <div class="tabs-in">
+    <button class="tab" role="tab" data-view="overview" aria-selected="true">Overview</button>
+    <button class="tab" role="tab" data-view="groups" aria-selected="false">Groups <span class="n" id="tabn-groups"></span></button>
+    <button class="tab" role="tab" data-view="policies" aria-selected="false">Policies <span class="n" id="tabn-policies"></span></button>
+    <button class="tab" role="tab" data-view="matrix" aria-selected="false">Coverage matrix</button>
+  </div>
+</nav>
+
+<div class="filterbar">
+  <div class="filterbar-in">
+    <div class="fgroup">
+      <label for="f-type">Type</label>
+      <select class="f" id="f-type"><option value="">All types</option></select>
+    </div>
+    <div class="fgroup">
+      <label for="f-plat">Platform</label>
+      <select class="f" id="f-plat"><option value="">All platforms</option></select>
+    </div>
+    <div class="fgroup">
+      <label for="f-state">Assignment</label>
+      <select class="f" id="f-state">
+        <option value="">Any state</option>
+        <option value="assigned">Assigned only</option>
+        <option value="unassigned">Unassigned only</option>
+        <option value="broad">Targets all users/devices</option>
+        <option value="hasexclude">Has exclusions</option>
+        <option value="filtered">Uses assignment filter</option>
+      </select>
+    </div>
+    <div class="seg" role="group" aria-label="Assignment mode">
+      <button data-mode="" aria-pressed="true">Both</button>
+      <button data-mode="Include" aria-pressed="false">Include</button>
+      <button data-mode="Exclude" aria-pressed="false">Exclude</button>
+    </div>
+    <div class="fgroup">
+      <label for="f-sort">Sort</label>
+      <select class="f" id="f-sort">
+        <option value="count">Most assignments</option>
+        <option value="name">Name (A→Z)</option>
+        <option value="type">Type, then name</option>
+      </select>
+    </div>
+    <button class="linkbtn" id="expandall">Expand all</button>
+    <button class="linkbtn" id="collapseall">Collapse all</button>
+    <button class="linkbtn" id="reset">Reset filters</button>
+    <div class="spacer"></div>
+    <div class="resultline" id="resultline"></div>
+  </div>
+</div>
+
+<main>
+  <section class="view active" id="view-overview" role="tabpanel"></section>
+  <section class="view" id="view-groups" role="tabpanel"></section>
+  <section class="view" id="view-policies" role="tabpanel"></section>
+  <section class="view" id="view-matrix" role="tabpanel"></section>
+</main>
+
+<footer>
+  <div id="footmeta"></div>
+  <div>Shortcuts: <span class="mono">/</span> search · <span class="mono">1–4</span> views · <span class="mono">e</span> expand · <span class="mono">c</span> collapse · <span class="mono">t</span> theme · <span class="mono">i</span> import · <span class="mono">Esc</span> clear</div>
+</footer>
+
+<div id="dropzone"><div class="dzcard">
+  <svg width="30" height="30" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.5v-8m0 0L5 5.5m3-3 3 3M2.5 11.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1"/></svg>
+  <div>Drop the assignment export to load it</div>
+</div></div>
+
+<div id="tip" role="status" aria-live="polite"></div>
+<div class="toast" id="toast"></div>
+
+<script id="intune-data" type="application/json">__DATA__</script>
+<script>
+"use strict";
+/* ==========================================================================
+   1. Load + normalise
+   ========================================================================== */
+const ALL_USERS = '__allUsers', ALL_DEVICES = '__allDevices';
+const TARGET_LABEL = {AllUsers:'All users', AllDevices:'All devices'};
+
+function platformOf(p){
+  if (p.platforms && p.platforms !== 'none') return p.platforms;
+  const o = (p.odataType||'').toLowerCase();
+  if (o.includes('macos')) return 'macOS';
+  if (o.includes('ios')) return 'iOS';
+  if (o.includes('android')) return 'Android';
+  if (o.includes('windows') || o.includes('win32') || o.includes('winget')) return 'windows10';
+  if ((p.resourceType||'').includes('macOS')) return 'macOS';
+  if ((p.resourceType||'').includes('Windows')) return 'windows10';
+  return '';
+}
+const PLATFORM_LABEL = {windows10:'Windows', macOS:'macOS', iOS:'iOS', Android:'Android', androidForWork:'Android Enterprise'};
+const platLabel = v => PLATFORM_LABEL[v] || v || 'Unspecified';
+
+const builtinFirst = (a,b) => (a.kind===b.kind) ? 0 : (a.kind==='builtin' ? -1 : 1);
+
+/* Mutable model — rebuilt on every dataset load. */
+let RAW = null, policySets = new Map(), policies = [], policyById = new Map(),
+    groups = [], resourceTypes = [], platforms = [], HC = null;
+
+function buildModel(raw){
+  RAW = raw;
+  policySets = new Map(
+    RAW.policies.filter(p => p.resourceType === 'Policy Set').map(p => [p.id, p.displayName])
+  );
+
+  /** policies[] with a flattened, resolved `targets` array */
+  policies = RAW.policies.map(p => {
+    const targets = (p.assignments||[]).map(a => {
+      const isGroup = a.targetType === 'Group' && a.groupId;
+      return {
+        mode: a.mode,
+        exclude: a.mode === 'Exclude',
+        targetType: a.targetType,
+        key: isGroup ? a.groupId : (a.targetType === 'AllUsers' ? ALL_USERS : ALL_DEVICES),
+        name: isGroup ? (a.groupDisplayName || '(unnamed group)') : (TARGET_LABEL[a.targetType] || a.targetType),
+        isGroup,
+        intent: a.intent || null,
+        filterId: a.filterId && a.filterId !== '00000000-0000-0000-0000-000000000000' ? a.filterId : null,
+        filterType: a.filterType && a.filterType !== 'none' ? a.filterType : null,
+        source: a.source || 'direct',
+        viaName: a.source === 'policySets' ? (policySets.get(a.sourceId) || 'Policy set') : null,
+        viaId: a.source === 'policySets' ? a.sourceId : null
+      };
+    });
+    return {
+      id: p.id,
+      name: p.displayName || '(unnamed)',
+      resourceType: p.resourceType,
+      endpoint: p.endpoint,
+      odataType: p.odataType || '',
+      publisher: p.publisher || '',
+      priority: (typeof p.priority === 'number') ? p.priority : null,
+      platform: platformOf(p),
+      templateName: (p.templateReference && p.templateReference.templateDisplayName) || '',
+      targets,
+      includes: targets.filter(t => !t.exclude),
+      excludes: targets.filter(t => t.exclude),
+      assigned: targets.length > 0,
+      broad: targets.some(t => !t.isGroup && !t.exclude),
+      hasFilter: targets.some(t => t.filterId),
+      _search: ''
+    };
+  });
+  policies.forEach(p => {
+    const inherited = p.targets.some(t => t.source === 'policySets');
+    if (inherited) p.targets.forEach(t => { if (t.source !== 'policySets') t.mixed = true; });
+    p._search = [p.name, p.resourceType, p.id, p.platform, p.publisher, p.templateName,
+                 ...p.targets.map(t => t.name)].join(' ').toLowerCase();
+  });
+  policyById = new Map(policies.map(p => [p.id, p]));
+
+  /** groups[] — real Entra groups from the index, plus the two built-in targets */
+  const groupMap = new Map();
+  function ensureGroup(key, name, kind){
+    let g = groupMap.get(key);
+    if (!g){ g = {key, name, kind, includes:[], excludes:[], _search:''}; groupMap.set(key, g); }
+    if (name && g.name !== name && kind !== 'builtin') g.name = name;
+    return g;
+  }
+  Object.values(RAW.groupIndex || {}).forEach(g => ensureGroup(g.groupId, g.displayName || '(unnamed group)', 'group'));
+  policies.forEach(p => {
+    p.targets.forEach(t => {
+      const g = ensureGroup(t.key, t.name, t.isGroup ? 'group' : 'builtin');
+      (t.exclude ? g.excludes : g.includes).push({policy:p, t});
+    });
+  });
+  groups = [...groupMap.values()];
+  groups.forEach(g => {
+    g.total = g.includes.length + g.excludes.length;
+    g._search = [g.name, g.key, ...g.includes.map(x=>x.policy.name), ...g.excludes.map(x=>x.policy.name)]
+                .join(' ').toLowerCase();
+  });
+
+  resourceTypes = [...new Set(policies.map(p=>p.resourceType))].sort();
+  platforms = [...new Set(policies.map(p=>p.platform).filter(Boolean))].sort();
+  HC = healthChecks();
+}
+
+/* ==========================================================================
+   2. Filter state
+   ========================================================================== */
+const S = {view:'overview', q:'', type:'', plat:'', state:'', mode:'', sort:'count'};
+
+/** '' = any platform, '__none' = policies with no platform metadata */
+function platMatch(p){ return !S.plat ? true : S.plat === '__none' ? !p.platform : p.platform === S.plat; }
+
+function policyPasses(p){
+  if (S.type && p.resourceType !== S.type) return false;
+  if (!platMatch(p)) return false;
+  switch (S.state){
+    case 'assigned':   if (!p.assigned) return false; break;
+    case 'unassigned': if (p.assigned) return false; break;
+    case 'broad':      if (!p.broad) return false; break;
+    case 'hasexclude': if (!p.excludes.length) return false; break;
+    case 'filtered':   if (!p.hasFilter) return false; break;
+  }
+  if (S.mode){
+    if (S.mode === 'Include' && !p.includes.length) return false;
+    if (S.mode === 'Exclude' && !p.excludes.length) return false;
+  }
+  if (S.q && !p._search.includes(S.q)) return false;
+  return true;
+}
+/** rows visible inside an expanded card, honouring mode + policy filters */
+function visibleTargets(p){
+  return p.targets.filter(t => !S.mode || t.mode === S.mode);
+}
+function visibleGroupRows(g){
+  const rows = [...g.includes.map(x=>({...x, exclude:false})), ...g.excludes.map(x=>({...x, exclude:true}))];
+  return rows.filter(r => (!S.mode || r.t.mode === S.mode) && policyPassesForGroupRow(r.policy));
+}
+function policyPassesForGroupRow(p){
+  if (S.type && p.resourceType !== S.type) return false;
+  if (!platMatch(p)) return false;
+  if (S.state === 'unassigned') return false;
+  if (S.state === 'broad' && !p.broad) return false;
+  if (S.state === 'hasexclude' && !p.excludes.length) return false;
+  if (S.state === 'filtered' && !p.hasFilter) return false;
+  return true;
+}
+function filteredPolicies(){
+  const out = policies.filter(policyPasses);
+  return sortPolicies(out);
+}
+function sortPolicies(arr){
+  const by = S.sort;
+  return arr.sort((a,b) =>
+    by === 'name' ? a.name.localeCompare(b.name)
+    : by === 'type' ? (a.resourceType.localeCompare(b.resourceType) || a.name.localeCompare(b.name))
+    : (b.targets.length - a.targets.length) || a.name.localeCompare(b.name));
+}
+function filteredGroups(){
+  const q = S.q;
+  const out = groups.filter(g => {
+    if (S.state === 'unassigned') return false;
+    const rows = visibleGroupRows(g);
+    const nameHit = q && g.name.toLowerCase().includes(q);
+    if (q && !nameHit && !rows.some(r => r.policy._search.includes(q))) return false;
+    if (!q && !rows.length && (S.type || S.plat || S.state || S.mode)) return false;
+    return true;
+  });
+  const by = S.sort;
+  return out.sort((a,b) =>
+    builtinFirst(a,b) ||
+    (by === 'name' ? a.name.localeCompare(b.name)
+     : (visibleGroupRows(b).length - visibleGroupRows(a).length) || a.name.localeCompare(b.name)));
+}
+
+/* ==========================================================================
+   3. Small helpers
+   ========================================================================== */
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const fmt = n => n.toLocaleString();
+const short = id => (id||'').slice(0,8);
+function hl(text, q){                       // highlight query hits without innerHTML on data
+  const frag = document.createDocumentFragment();
+  if (!q){ frag.append(text); return frag; }
+  const lower = text.toLowerCase(); let i = 0, at;
+  while ((at = lower.indexOf(q, i)) !== -1){
+    if (at > i) frag.append(text.slice(i, at));
+    const m = el('mark', null, text.slice(at, at + q.length));
+    m.style.cssText = 'background:color-mix(in oklab,var(--warn) 45%,transparent);color:inherit;border-radius:3px;padding:0 1px';
+    frag.append(m); i = at + q.length;
+  }
+  frag.append(text.slice(i)); return frag;
+}
+function badge(cls, text, title){ const b = el('span','b '+(cls||''), text); if (title) b.title = title; return b; }
+function icon(path, size){
+  const s = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('viewBox','0 0 16 16'); s.setAttribute('width', size||14); s.setAttribute('height', size||14);
+  s.setAttribute('fill','none'); s.setAttribute('stroke','currentColor'); s.setAttribute('stroke-width','1.7');
+  s.setAttribute('stroke-linecap','round'); s.setAttribute('stroke-linejoin','round');
+  const p = document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('d', path); s.append(p);
+  return s;
+}
+const CARET = 'M6 3.5 10.5 8 6 12.5';
+let toastT;
+function toast(msg){
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('on'), 1700);
+}
+function copy(text, what){
+  navigator.clipboard?.writeText(text).then(()=>toast((what||'Copied')+' copied'), ()=>toast('Copy blocked by browser'));
+}
+function copyBtn(text, what){
+  const b = el('button','copy','⧉'); b.title = 'Copy ' + (what||'value');
+  b.onclick = e => { e.preventDefault(); e.stopPropagation(); copy(text, what); };
+  return b;
+}
+
+/* tooltip */
+const tipEl = document.getElementById('tip');
+function tipShow(html, x, y){
+  tipEl.innerHTML = html; tipEl.classList.add('on');
+  const r = tipEl.getBoundingClientRect();
+  tipEl.style.left = Math.min(x + 14, innerWidth - r.width - 10) + 'px';
+  tipEl.style.top  = Math.max(8, Math.min(y + 14, innerHeight - r.height - 10)) + 'px';
+}
+const tipHide = () => tipEl.classList.remove('on');
+function attachTip(node, builder){
+  const move = e => tipShow(builder(), e.clientX, e.clientY);
+  node.addEventListener('mousemove', move);
+  node.addEventListener('mouseleave', tipHide);
+  node.addEventListener('focus', () => { const r = node.getBoundingClientRect(); tipShow(builder(), r.left + r.width/2, r.bottom - 8); });
+  node.addEventListener('blur', tipHide);
+}
+
+/* ==========================================================================
+   4. Chart component — horizontal bars (1 or 2 series) + table twin
+   ========================================================================== */
+function barChart({title, subtitle, rows, series, unit, onClick}){
+  // rows: [{cat, values:[n,...], meta}]  series: [{name,color}]
+  const card = el('div','card chartcard');
+  const hd = el('div','card-hd');
+  const h = el('div'); h.style.flex = '1 1 auto';
+  const t = el('h3', null, title); h.append(t);
+  if (subtitle) h.append(el('p', null, subtitle));
+  hd.append(h);
+  const tgl = el('button','tbltoggle','Table');
+  tgl.setAttribute('aria-pressed','false');
+  tgl.onclick = () => { const on = card.classList.toggle('showtable');
+    tgl.textContent = on ? 'Chart' : 'Table'; tgl.setAttribute('aria-pressed', String(on)); };
+  hd.append(tgl);
+  card.append(hd);
+
+  const bd = el('div','card-bd');
+  if (series.length > 1){
+    const lg = el('div','legend');
+    series.forEach(s => { const sp = el('span'); const i = el('i'); i.style.background = s.color; sp.append(i, document.createTextNode(s.name)); lg.append(sp); });
+    bd.append(lg);
+  }
+  const max = Math.max(1, ...rows.map(r => r.values.reduce((a,b)=>a+b,0)));
+  const chart = el('div','chart'); const bars = el('div','bars');
+  rows.forEach(r => {
+    const total = r.values.reduce((a,b)=>a+b,0);
+    const row = el('div','barrow' + (onClick ? ' link' : ''));
+    row.tabIndex = 0;
+    const cat = el('div','cat', r.cat); cat.title = r.cat; row.append(cat);
+    const track = el('div','track');
+    const stack = el('div','barstack');
+    stack.style.width = 'calc(' + (total/max*100) + '% - ' + (r.values.filter(v=>v>0).length>1 ? 2 : 0) + 'px)';
+    r.values.forEach((v,i) => {
+      if (!v) return;
+      const seg = el('i');
+      seg.style.background = series[i].color;
+      seg.style.flex = v + ' 1 0';
+      seg.style.minWidth = '3px';
+      stack.append(seg);
+    });
+    if (!total){ const z = el('i'); z.style.cssText = 'background:var(--grid);width:3px'; stack.append(z); stack.style.width='3px'; }
+    track.append(stack, el('div','v', fmt(total)));
+    row.append(track);
+    attachTip(row, () => '<div class="t">' + escapeHtml(r.cat) + '</div>' +
+      series.map((s,i) => '<div class="r"><span>' + escapeHtml(s.name) + '</span><b>' + fmt(r.values[i]) + '</b></div>').join('') +
+      (r.note ? '<div class="r" style="margin-top:4px">' + escapeHtml(r.note) + '</div>' : ''));
+    if (onClick){
+      row.onclick = () => onClick(r);
+      row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); onClick(r); } };
+      row.setAttribute('role','button');
+    }
+    bars.append(row);
+  });
+  chart.append(bars);
+  bd.append(chart);
+
+  const tv = el('div','tblview');
+  const tbl = el('table','dt');
+  const thead = el('thead'); const htr = el('tr'); htr.append(el('th', null, unit || 'Category'));
+  series.forEach(s => htr.append(el('th','num', s.name)));
+  if (series.length > 1) htr.append(el('th','num','Total'));
+  thead.append(htr); tbl.append(thead);
+  const tb = el('tbody');
+  rows.forEach(r => {
+    const tr = el('tr'); tr.append(el('td', null, r.cat));
+    r.values.forEach(v => tr.append(el('td','num', fmt(v))));
+    if (series.length > 1) tr.append(el('td','num', fmt(r.values.reduce((a,b)=>a+b,0))));
+    tb.append(tr);
+  });
+  tbl.append(tb); tv.append(tbl); bd.append(tv);
+  card.append(bd);
+  return card;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ==========================================================================
+   5. Overview
+   ========================================================================== */
+function healthChecks(){
+  const unassigned = policies.filter(p => !p.assigned && p.resourceType !== 'Policy Set');
+  const broad = policies.filter(p => p.broad);
+  const excl = policies.filter(p => p.excludes.length);
+  const filtered = policies.filter(p => p.hasFilter);
+  const emptyGroups = groups.filter(g => g.kind === 'group' && g.total === 0);
+  const excludeOnly = groups.filter(g => g.kind === 'group' && g.includes.length === 0 && g.excludes.length > 0);
+  const conflicts = [];
+  const redundant = [];
+  policies.forEach(p => {
+    const inc = new Set(p.includes.map(t=>t.key));
+    p.excludes.forEach(t => { if (inc.has(t.key)) conflicts.push({p, t}); });
+    const seen = new Map();
+    p.targets.forEach(t => {
+      const k = t.mode + '|' + t.key;
+      if (seen.has(k)) redundant.push({p, t, other: seen.get(k)}); else seen.set(k, t);
+    });
+  });
+  const viaSets = policies.filter(p => p.targets.some(t => t.source === 'policySets'));
+  return {unassigned, broad, excl, filtered, emptyGroups, excludeOnly, conflicts, redundant, viaSets};
+}
+
+function hCard(kind, title, desc, items, render){
+  const d = el('details','card hcard');
+  const s = el('summary');
+  const ic = el('div','hicon ' + kind, kind === 'ok' ? '✓' : kind === 'crit' ? '!' : kind === 'warn' ? '!' : 'i');
+  const box = el('div'); box.style.minWidth = '0';
+  box.append(el('div','ht', title), el('div','hd2', desc));
+  s.append(ic, box, el('div','hn', fmt(items.length)));
+  d.append(s);
+  const body = el('div','hbody');
+  if (!items.length) body.append(el('div', null, 'Nothing to show — all clear.'));
+  else { const ul = el('ul'); items.slice(0, 400).forEach(it => ul.append(render(it))); body.append(ul);
+         if (items.length > 400) body.append(el('div','rowsub','+ ' + (items.length-400) + ' more')); }
+  d.append(body);
+  return d;
+}
+function liPolicy(p, extra){
+  const li = el('li');
+  const b = el('button','jump', p.name); b.onclick = () => gotoPolicy(p.id);
+  li.append(b, badge('type g', p.resourceType));
+  if (extra) li.append(extra);
+  return li;
+}
+
+function renderOverview(){
+  const v = document.getElementById('view-overview'); v.textContent = '';
+  const assigned = policies.filter(p => p.assigned).length;
+  const realGroups = groups.filter(g => g.kind === 'group').length;
+  const totalAssignments = policies.reduce((n,p)=>n+p.targets.length, 0);
+  const pct = Math.round(assigned / policies.length * 100);
+
+  if ((RAW.errors||[]).length){
+    const bn = el('div','banner');
+    const box = el('div');
+    box.append(el('div', null, RAW.errors.length + ' resource type' + (RAW.errors.length>1?'s':'') + ' could not be read during collection — the data below is incomplete for these.'));
+    const ul = el('ul');
+    RAW.errors.forEach(e => ul.append(el('li', null, e.resourceType + ' — ' + e.error.replace(/\.$/,'') + ' (' + e.uri + ')')));
+    box.append(ul);
+    bn.append(el('div','hicon warn','!'), box);
+    v.append(bn);
+  }
+
+  /* hero + tiles */
+  const hero = el('div','herorow');
+  const hcard = el('div','card hero');
+  hcard.append(el('div','lbl','Policies discovered'));
+  hcard.append(el('div','val', fmt(policies.length)));
+  const meter = el('div','meter'); const fill = el('div','fill'); fill.style.width = pct + '%'; meter.append(fill);
+  hcard.append(meter);
+  hcard.append(el('div','note', fmt(assigned) + ' assigned (' + pct + '%) · ' + fmt(policies.length - assigned) + ' with no assignment'));
+  hero.append(hcard);
+
+  const tiles = el('div','tiles');
+  const mk = (lbl, val, sub, dotColor) => {
+    const c = el('div','card tile');
+    const l = el('div','lbl');
+    if (dotColor){ const d = el('span','dot'); d.style.background = dotColor; l.append(d); }
+    l.append(document.createTextNode(lbl));
+    c.append(l, el('div','val', val), el('div','sub', sub));
+    return c;
+  };
+  const incCount = policies.reduce((n,p)=>n+p.includes.length,0);
+  const excCount = policies.reduce((n,p)=>n+p.excludes.length,0);
+  tiles.append(
+    mk('Assignments', fmt(totalAssignments), fmt(incCount) + ' include · ' + fmt(excCount) + ' exclude'),
+    mk('Entra groups in use', fmt(realGroups), HC.excludeOnly.length + ' exclusion-only'),
+    mk('Broad targeting', fmt(HC.broad.length), 'policies hit all users/devices', 'var(--warn)'),
+    mk('Unassigned', fmt(HC.unassigned.length), 'policies doing nothing' +
+       (policies.length - assigned - HC.unassigned.length > 0
+        ? ' · + ' + (policies.length - assigned - HC.unassigned.length) + ' empty policy set(s)' : ''), 'var(--muted)'),
+    mk('Resource types', fmt(resourceTypes.length),
+       (RAW.resourceTypes||[]).length ? RAW.resourceTypes.length + ' scanned' : 'present in this export'),
+    mk('Assignment filters', fmt(HC.filtered.length), 'policies scoped by a filter')
+  );
+  hero.append(tiles);
+  v.append(hero);
+
+  /* charts */
+  v.append(el('div','sec-title','Distribution'));
+  const g1 = el('div','grid'); g1.style.gridTemplateColumns = 'repeat(auto-fit,minmax(min(560px,100%),1fr))';
+  g1.style.alignItems = 'start';
+
+  const byType = resourceTypes.map(rt => {
+    const ps = policies.filter(p => p.resourceType === rt);
+    return {cat: rt, values: [ps.filter(p=>p.assigned).length, ps.filter(p=>!p.assigned).length], key: rt};
+  }).sort((a,b) => (b.values[0]+b.values[1]) - (a.values[0]+a.values[1]));
+  g1.append(barChart({
+    title:'Policies by resource type',
+    subtitle:'Click a bar to filter the Policies view',
+    rows: byType, unit:'Resource type',
+    series:[{name:'Assigned', color:'var(--s1)'}, {name:'Unassigned', color:'var(--s2)'}],
+    onClick: r => { S.type = r.key; document.getElementById('f-type').value = r.key; setView('policies'); render(); }
+  }));
+
+  const topGroups = groups.slice().sort((a,b)=> b.total - a.total).slice(0,12).map(g => ({
+    cat: g.name + (g.kind==='builtin' ? ' (built-in)' : ''),
+    values: [g.includes.length, g.excludes.length], key: g.key
+  }));
+  g1.append(barChart({
+    title:'Most-targeted groups',
+    subtitle:'Top 12 by number of policy assignments · click to open the group',
+    rows: topGroups, unit:'Group',
+    series:[{name:'Included', color:'var(--s1)'}, {name:'Excluded', color:'var(--s2)'}],
+    onClick: r => gotoGroup(r.key)
+  }));
+
+  const platRows = [...new Set(policies.map(p=>p.platform))].map(pl => ({
+    cat: platLabel(pl), key: pl,
+    values: [policies.filter(p=>p.platform===pl && p.assigned).length, policies.filter(p=>p.platform===pl && !p.assigned).length]
+  })).sort((a,b)=>(b.values[0]+b.values[1])-(a.values[0]+a.values[1]));
+  g1.append(barChart({
+    title:'Policies by platform',
+    subtitle:'Inferred from platform metadata and OData type',
+    rows: platRows, unit:'Platform',
+    series:[{name:'Assigned', color:'var(--s1)'}, {name:'Unassigned', color:'var(--s2)'}],
+    onClick: r => { S.plat = r.key || '__none'; document.getElementById('f-plat').value = S.plat; setView('policies'); render(); }
+  }));
+
+  const targetRows = [
+    {cat:'Specific Entra group', values:[policies.reduce((n,p)=>n+p.targets.filter(t=>t.isGroup).length,0)]},
+    {cat:'All devices',          values:[policies.reduce((n,p)=>n+p.targets.filter(t=>t.key===ALL_DEVICES).length,0)]},
+    {cat:'All users',            values:[policies.reduce((n,p)=>n+p.targets.filter(t=>t.key===ALL_USERS).length,0)]},
+    {cat:'Via policy set',       values:[policies.reduce((n,p)=>n+p.targets.filter(t=>t.source==='policySets').length,0)]},
+    {cat:'With an assignment filter', values:[policies.reduce((n,p)=>n+p.targets.filter(t=>t.filterId).length,0)]}
+  ];
+  g1.append(barChart({
+    title:'How assignments are targeted',
+    subtitle:'Counting individual assignment records, not policies',
+    rows: targetRows, unit:'Target style',
+    series:[{name:'Assignments', color:'var(--s1)'}]
+  }));
+  v.append(g1);
+
+  /* health */
+  v.append(el('div','sec-title','Hygiene checks'));
+  const h = el('div','health');
+  h.append(hCard(HC.unassigned.length ? 'warn':'ok', 'Unassigned policies',
+    'Configured but targeting nothing — dead weight or work in progress.', HC.unassigned, p => liPolicy(p)));
+  h.append(hCard(HC.conflicts.length ? 'crit':'ok', 'Include + exclude conflicts',
+    'Same group on both sides of one policy. Exclusion always wins.', HC.conflicts,
+    x => liPolicy(x.p, badge('exc', 'excludes ' + x.t.name))));
+  h.append(hCard(HC.broad.length ? 'warn':'ok', 'Broad targeting',
+    'Assigned to all users or all devices — verify exclusions are in place.', HC.broad,
+    p => liPolicy(p, badge('warnb', p.targets.filter(t=>!t.isGroup&&!t.exclude).map(t=>t.name).join(', ')))));
+  h.append(hCard(HC.redundant.length ? 'warn':'ok', 'Duplicate assignments',
+    'The same target reaches a policy twice (usually direct plus a policy set).', HC.redundant,
+    x => liPolicy(x.p, badge(null, x.t.name + ' · ' + (x.t.viaName ? 'via ' + x.t.viaName : x.t.source)))));
+  h.append(hCard(HC.excludeOnly.length ? 'info':'ok', 'Exclusion-only groups',
+    'Groups that are never included anywhere — they only carve things out.', HC.excludeOnly,
+    g => { const li = el('li'); const b = el('button','jump', g.name); b.onclick = ()=>gotoGroup(g.key);
+           li.append(b, badge('exc', g.excludes.length + ' exclusion' + (g.excludes.length>1?'s':''))); return li; }));
+  h.append(hCard(HC.emptyGroups.length ? 'info':'ok', 'Groups with no assignments',
+    'Present in the export but not referenced by any policy.', HC.emptyGroups,
+    g => { const li = el('li'); const b = el('button','jump', g.name); b.onclick = ()=>gotoGroup(g.key); li.append(b); return li; }));
+  h.append(hCard(HC.filtered.length ? 'info':'ok', 'Assignment filters in use',
+    'Filter display names are not in the export — IDs shown.', HC.filtered,
+    p => liPolicy(p, badge('mono', p.targets.filter(t=>t.filterId).map(t=>t.filterType + ' ' + short(t.filterId)).join(', ')))));
+  h.append(hCard(HC.viaSets.length ? 'info':'ok', 'Assigned through a policy set',
+    'Targeting is inherited — edit the policy set, not the policy.', HC.viaSets,
+    p => liPolicy(p, badge(null, 'via ' + [...new Set(p.targets.filter(t=>t.viaName).map(t=>t.viaName))].join(', ')))));
+  v.append(h);
+}
+
+/* ==========================================================================
+   6. Assignment row rendering (shared by both list views)
+   ========================================================================== */
+function targetTags(t){
+  const f = document.createDocumentFragment();
+  if (t.intent) f.append(badge(null, t.intent));
+  if (t.filterId) f.append(badge('mono', (t.filterType === 'exclude' ? '⊘ ' : '⊙ ') + 'filter ' + short(t.filterId),
+    'Assignment filter ' + t.filterId + ' (' + t.filterType + ')'));
+  if (t.viaName) f.append(badge('warnb', 'via ' + t.viaName, 'Inherited from policy set'));
+  else if (t.mixed) f.append(badge(null, 'direct', 'Assigned on the policy itself'));
+  return f;
+}
+function assignmentGroupBlock(titleText, count, items, cls){
+  const wrap = el('div','grp');
+  const h4 = el('h4');
+  h4.append(document.createTextNode(titleText));
+  h4.append(badge(cls, fmt(count)));
+  wrap.append(h4);
+  const list = el('div','alist');
+  items.forEach(n => list.append(n));
+  wrap.append(list);
+  return wrap;
+}
+/** rows for the Policies view: one per target */
+function targetRow(t){
+  const it = el('div','aitem ' + (t.exclude ? 'e' : 'i'));
+  const nm = el('div','nm');
+  if (t.isGroup){
+    const b = el('button','jump'); b.append(hl(t.name, S.q)); b.onclick = () => gotoGroup(t.key);
+    nm.append(b);
+  } else {
+    const sp = el('span'); sp.style.fontWeight = '580'; sp.append(t.name); nm.append(sp);
+    nm.append(badge('warnb','built-in target'));
+  }
+  if (t.isGroup){ const m = el('span','meta mono', short(t.key)); nm.append(m); }
+  const tags = el('div','tags'); tags.append(targetTags(t));
+  it.append(nm, tags);
+  return it;
+}
+/** rows for the Groups view: one per policy */
+function policyRowInGroup(r){
+  const p = r.policy, t = r.t;
+  const it = el('div','aitem ' + (r.exclude ? 'e' : 'i'));
+  const nm = el('div','nm');
+  const b = el('button','jump'); b.append(hl(p.name, S.q)); b.onclick = () => gotoPolicy(p.id);
+  nm.append(b);
+  it.append(nm);
+  const tags = el('div','tags');
+  tags.append(badge('type', p.resourceType));
+  if (p.platform) tags.append(badge(null, platLabel(p.platform)));
+  tags.append(targetTags(t));
+  it.append(tags);
+  return it;
+}
+
+/* ==========================================================================
+   7. Groups view
+   ========================================================================== */
+function renderGroups(){
+  const v = document.getElementById('view-groups'); v.textContent = '';
+  const list = filteredGroups();
+  document.getElementById('tabn-groups').textContent = fmt(groups.length);
+  if (!list.length){
+    v.append(S.state === 'unassigned'
+      ? emptyState('Nothing to show', 'The "Unassigned only" filter is about policies — switch to the Policies view to see them.')
+      : emptyState('No groups match', 'Try clearing the search or filters.'));
+    return;
+  }
+  const rows = el('div','rows');
+  list.forEach(g => rows.append(groupCard(g)));
+  v.append(rows);
+}
+function groupCard(g){
+  const d = el('details','row'); d.dataset.key = 'g:' + g.key;
+  if (openSet.has('g:' + g.key)) d.open = true;
+  d.addEventListener('toggle', () => { d.open ? openSet.add('g:'+g.key) : openSet.delete('g:'+g.key); });
+
+  const s = el('summary');
+  const caret = el('span','caret'); caret.append(icon(CARET)); s.append(caret);
+  const main = el('div','rowmain');
+  const title = el('div','rowtitle');
+  title.append(hl(g.name, S.q));
+  if (g.kind === 'builtin') title.append(badge('warnb','built-in target'));
+  main.append(title);
+  const sub = el('div','rowsub');
+  if (g.kind === 'group'){ const m = el('span','mono', g.key); sub.append(m); sub.append(copyBtn(g.key,'Group ID')); }
+  else sub.append(el('span', null, 'Every ' + (g.key === ALL_USERS ? 'licensed user' : 'enrolled device') + ' in the tenant'));
+  main.append(sub);
+
+  const rows = visibleGroupRows(g);
+  const inc = rows.filter(r=>!r.exclude), exc = rows.filter(r=>r.exclude);
+  const stats = el('div','rowstats');
+  stats.append(badge(inc.length ? 'inc':'zero', fmt(inc.length) + ' included'));
+  stats.append(badge(exc.length ? 'exc':'zero', fmt(exc.length) + ' excluded'));
+  const types = new Set(rows.map(r=>r.policy.resourceType));
+  if (types.size) stats.append(badge(null, types.size + ' type' + (types.size>1?'s':'')));
+  s.append(main, stats);
+  d.append(s);
+
+  const body = el('div','rowbody');
+  if (!rows.length) body.append(el('div','rowsub','No assignments match the current filters.'));
+  if (inc.length) body.append(assignmentGroupBlock('Included by', inc.length, byTypeSorted(inc).map(policyRowInGroup), 'inc'));
+  if (exc.length) body.append(assignmentGroupBlock('Excluded from', exc.length, byTypeSorted(exc).map(policyRowInGroup), 'exc'));
+  d.append(body);
+  return d;
+}
+function byTypeSorted(rows){
+  return rows.slice().sort((a,b) => a.policy.resourceType.localeCompare(b.policy.resourceType) || a.policy.name.localeCompare(b.policy.name));
+}
+
+/* ==========================================================================
+   8. Policies view
+   ========================================================================== */
+function renderPolicies(){
+  const v = document.getElementById('view-policies'); v.textContent = '';
+  const list = filteredPolicies();
+  document.getElementById('tabn-policies').textContent = fmt(policies.length);
+  if (!list.length){ v.append(emptyState('No policies match', 'Try clearing the search or filters.')); return; }
+  const rows = el('div','rows');
+  list.forEach(p => rows.append(policyCard(p)));
+  v.append(rows);
+}
+function policyCard(p){
+  const d = el('details','row'); d.dataset.key = 'p:' + p.id;
+  if (openSet.has('p:' + p.id)) d.open = true;
+  d.addEventListener('toggle', () => { d.open ? openSet.add('p:'+p.id) : openSet.delete('p:'+p.id); });
+
+  const s = el('summary');
+  const caret = el('span','caret'); caret.append(icon(CARET)); s.append(caret);
+  const main = el('div','rowmain');
+  const title = el('div','rowtitle');
+  title.append(hl(p.name, S.q));
+  if (!p.assigned) title.append(badge('zero','unassigned'));
+  if (p.broad) title.append(badge('warnb','broad'));
+  main.append(title);
+  const sub = el('div','rowsub');
+  sub.append(el('span', null, p.resourceType));
+  if (p.platform) sub.append(el('span', null, '· ' + platLabel(p.platform)));
+  if (p.publisher) sub.append(el('span', null, '· ' + p.publisher));
+  if (p.templateName) sub.append(el('span', null, '· ' + p.templateName));
+  const m = el('span','mono', short(p.id)); sub.append(m); sub.append(copyBtn(p.id,'Policy ID'));
+  main.append(sub);
+
+  const ts = visibleTargets(p);
+  const inc = ts.filter(t=>!t.exclude), exc = ts.filter(t=>t.exclude);
+  const stats = el('div','rowstats');
+  stats.append(badge(inc.length ? 'inc':'zero', fmt(inc.length) + ' included'));
+  if (exc.length || S.mode === 'Exclude') stats.append(badge(exc.length ? 'exc':'zero', fmt(exc.length) + ' excluded'));
+  s.append(main, stats);
+  d.append(s);
+
+  const body = el('div','rowbody');
+  if (!ts.length){
+    const e = el('div','rowsub');
+    e.append(p.assigned ? 'No assignments match the current filters.'
+      : 'This policy has no assignments — it applies to nobody.');
+    body.append(e);
+  }
+  if (inc.length) body.append(assignmentGroupBlock('Assigned to', inc.length, inc.map(targetRow), 'inc'));
+  if (exc.length) body.append(assignmentGroupBlock('Excluded', exc.length, exc.map(targetRow), 'exc'));
+  const meta = el('div','rowsub'); meta.style.marginTop = '10px';
+  meta.append(el('span','mono', p.endpoint));
+  if (p.odataType) meta.append(el('span','mono', p.odataType));
+  if (p.priority != null) meta.append(el('span', null, 'priority ' + p.priority));
+  body.append(meta);
+  d.append(body);
+  return d;
+}
+function emptyState(t, s){
+  const e = el('div','card empty'); e.append(el('b', null, t), document.createTextNode(s)); return e;
+}
+
+/* ==========================================================================
+   9. Coverage matrix
+   ========================================================================== */
+const SEQ = ['--seq-100','--seq-200','--seq-300','--seq-450','--seq-600'];
+function seqStep(n){ return n<=1?0 : n<=2?1 : n<=4?2 : n<=8?3 : 4; }
+function renderMatrix(){
+  const v = document.getElementById('view-matrix'); v.textContent = '';
+  const gs = filteredGroups();
+  const types = resourceTypes.filter(rt => !S.type || rt === S.type);
+  const card = el('div','card');
+  const hd = el('div','card-hd');
+  const h = el('div'); h.style.flex='1 1 auto';
+  h.append(el('h3', null, 'Group × resource-type coverage'));
+  h.append(el('p', null, 'How many policies of each type reach each group. Cells count inclusions; a superscript marks exclusions. Click any cell to see the policies.'));
+  hd.append(h); card.append(hd);
+  const bd = el('div','card-bd');
+
+  if (!gs.length || !types.length){ bd.append(el('div','empty','Nothing matches the current filters.')); card.append(bd); v.append(card); return; }
+
+  const wrap = el('div','matrixwrap');
+  const tbl = el('table','mx');
+  const thead = el('thead'); const htr = el('tr');
+  const corner = el('th','corner','Group ↓ / Type →'); htr.append(corner);
+  types.forEach(rt => htr.append(el('th', null, rt)));
+  htr.append(el('th', null, 'Total'));
+  thead.append(htr); tbl.append(thead);
+
+  const tb = el('tbody');
+  gs.forEach(g => {
+    const tr = el('tr');
+    const th = el('th', null, g.name); th.title = g.name;
+    if (g.kind === 'builtin') th.style.fontWeight = '620';
+    tr.append(th);
+    let rowTotal = 0;
+    types.forEach(rt => {
+      const inc = g.includes.filter(x => x.policy.resourceType === rt && policyPassesForGroupRow(x.policy));
+      const exc = g.excludes.filter(x => x.policy.resourceType === rt && policyPassesForGroupRow(x.policy));
+      rowTotal += inc.length;
+      const td = el('td');
+      const c = el('div','cell');
+      if (inc.length){
+        c.classList.add('f');
+        const step = seqStep(inc.length);
+        c.style.background = 'var(' + SEQ[step] + ')';
+        c.style.color = step >= 3 ? '#fff' : 'var(--ink)';
+        c.textContent = inc.length;
+      } else if (exc.length){
+        c.textContent = '';
+      }
+      if (exc.length){ const e = el('span','ex','−' + exc.length); c.append(e); }
+      if (inc.length || exc.length){
+        td.tabIndex = 0; td.style.cursor = 'pointer';
+        attachTip(td, () => '<div class="t">' + escapeHtml(g.name) + '</div><div class="r"><span>' + escapeHtml(rt) +
+          '</span></div><div class="r"><span>Included</span><b>' + inc.length + '</b></div><div class="r"><span>Excluded</span><b>' + exc.length + '</b></div>' +
+          '<div class="r" style="margin-top:5px">' + escapeHtml([...inc, ...exc].slice(0,6).map(x=>x.policy.name).join(' · ')) + (inc.length+exc.length>6?' …':'') + '</div>');
+        const open = () => { S.type = rt; document.getElementById('f-type').value = rt; gotoGroup(g.key); };
+        td.onclick = open;
+        td.onkeydown = e => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } };
+      }
+      td.append(c); tr.append(td);
+    });
+    const tt = el('td'); const tc = el('div','cell'); tc.style.fontWeight='620'; tc.textContent = rowTotal || '';
+    tt.append(tc); tr.append(tt);
+    tb.append(tr);
+  });
+  tbl.append(tb); wrap.append(tbl); bd.append(wrap);
+
+  const sc = el('div','scale');
+  sc.append(document.createTextNode('Policies per cell:'));
+  [['1',0],['2',1],['3–4',2],['5–8',3],['9+',4]].forEach(([lbl,i]) => {
+    const sp = el('span'); sp.style.cssText='display:inline-flex;align-items:center;gap:5px';
+    const sw = el('i'); sw.style.background = 'var(' + SEQ[i] + ')'; sp.append(sw, document.createTextNode(lbl)); sc.append(sp);
+  });
+  const ex = el('span'); ex.style.cssText='display:inline-flex;align-items:center;gap:5px;color:var(--s2);font-weight:600';
+  ex.append(document.createTextNode('−n  exclusions')); sc.append(ex);
+  bd.append(sc);
+  card.append(bd); v.append(card);
+}
+
+/* ==========================================================================
+   10. Navigation, filters, wiring
+   ========================================================================== */
+const openSet = new Set();
+
+function setView(name){
+  S.view = name;
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === name)));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  history.replaceState(null, '', '#' + name);
+  document.querySelector('.filterbar').style.display = (name === 'overview') ? 'none' : '';
+}
+function gotoGroup(key){
+  openSet.add('g:' + key); setView('groups'); render();
+  scrollToKey('g:' + key);
+}
+function gotoPolicy(id){
+  openSet.add('p:' + id); setView('policies'); render();
+  scrollToKey('p:' + id);
+}
+function scrollToKey(k){
+  requestAnimationFrame(() => {
+    const n = document.querySelector('[data-key="' + CSS.escape(k) + '"]');
+    if (!n){ toast('Hidden by the current filters'); return; }
+    n.scrollIntoView({behavior:'smooth', block:'center'});
+    n.animate([{boxShadow:'0 0 0 0 color-mix(in oklab,var(--s1) 60%,transparent)'},
+               {boxShadow:'0 0 0 5px color-mix(in oklab,var(--s1) 0%,transparent)'}], {duration:900});
+  });
+}
+
+function render(){
+  if (S.view === 'overview') renderOverview();
+  else if (S.view === 'groups') renderGroups();
+  else if (S.view === 'policies') renderPolicies();
+  else renderMatrix();
+  updateResultLine();
+}
+function updateResultLine(){
+  const rl = document.getElementById('resultline');
+  if (S.view === 'policies'){
+    const n = filteredPolicies().length;
+    rl.textContent = fmt(n) + ' of ' + fmt(policies.length) + ' policies';
+  } else if (S.view === 'groups' || S.view === 'matrix'){
+    const gs = filteredGroups();
+    const n = gs.reduce((a,g)=>a+visibleGroupRows(g).length, 0);
+    rl.textContent = fmt(gs.length) + ' of ' + fmt(groups.length) + ' groups · ' + fmt(n) + ' assignments shown';
+  } else rl.textContent = '';
+}
+
+/* filter controls */
+const qEl = document.getElementById('q');
+let qT;
+qEl.addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(() => { S.q = qEl.value.trim().toLowerCase(); render(); }, 130); });
+
+const fType = document.getElementById('f-type');
+const fPlat = document.getElementById('f-plat');
+fType.onchange = () => { S.type = fType.value; render(); };
+fPlat.onchange = () => { S.plat = fPlat.value; render(); };
+
+/** repopulate the type/platform dropdowns for the dataset that is loaded */
+function buildFilterOptions(){
+  fType.textContent = ''; fPlat.textContent = '';
+  const anyType = el('option', null, 'All types'); anyType.value = ''; fType.append(anyType);
+  resourceTypes.forEach(rt => {
+    const o = el('option', null, rt + ' (' + policies.filter(p=>p.resourceType===rt).length + ')');
+    o.value = rt; fType.append(o);
+  });
+  const anyPlat = el('option', null, 'All platforms'); anyPlat.value = ''; fPlat.append(anyPlat);
+  platforms.forEach(pl => {
+    const o = el('option', null, platLabel(pl) + ' (' + policies.filter(p=>p.platform===pl).length + ')');
+    o.value = pl; fPlat.append(o);
+  });
+  const n = policies.filter(p=>!p.platform).length;
+  if (n){ const o = el('option', null, 'Unspecified (' + n + ')'); o.value = '__none'; fPlat.append(o); }
+  fType.value = ''; fPlat.value = '';
+}
+
+document.getElementById('f-state').onchange = e => { S.state = e.target.value; render(); };
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+  S.mode = b.dataset.mode;
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  render();
+});
+document.getElementById('f-sort').onchange = e => { S.sort = e.target.value; render(); };
+document.getElementById('reset').onclick = () => {
+  S.q=''; S.type=''; S.plat=''; S.state=''; S.mode=''; S.sort='count';
+  qEl.value=''; fType.value=''; fPlat.value=''; document.getElementById('f-state').value='';
+  document.getElementById('f-sort').value='count';
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode==='')));
+  render();
+};
+document.getElementById('expandall').onclick = () => {
+  document.querySelectorAll('#view-' + S.view + ' details.row').forEach(d => { d.open = true; openSet.add(d.dataset.key); });
+};
+document.getElementById('collapseall').onclick = () => {
+  document.querySelectorAll('#view-' + S.view + ' details.row').forEach(d => { d.open = false; });
+  openSet.clear();
+};
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => { setView(t.dataset.view); render(); window.scrollTo({top:0}); });
+
+/* theme */
+const themeOrder = ['', 'light', 'dark'], themeLbl = {'':'System', light:'Light', dark:'Dark'}, themeIco = {'':'◐', light:'☀', dark:'☾'};
+function applyTheme(v){
+  document.documentElement.dataset.theme = v;
+  document.getElementById('themelbl').textContent = themeLbl[v];
+  document.getElementById('themeico').textContent = themeIco[v];
+  try { localStorage.setItem('intune-dash-theme', v); } catch(e){}
+}
+document.getElementById('themebtn').onclick = () => {
+  const cur = document.documentElement.dataset.theme || '';
+  applyTheme(themeOrder[(themeOrder.indexOf(cur) + 1) % 3]);
+};
+try { applyTheme(localStorage.getItem('intune-dash-theme') || ''); } catch(e){ applyTheme(''); }
+
+/* export menu */
+const exportBtn = document.getElementById('exportbtn'), exportMenu = document.getElementById('exportmenu');
+exportBtn.onclick = e => { e.stopPropagation(); const on = exportMenu.classList.toggle('open'); exportBtn.setAttribute('aria-expanded', String(on)); };
+document.addEventListener('click', () => { exportMenu.classList.remove('open'); exportBtn.setAttribute('aria-expanded','false'); });
+exportMenu.onclick = e => {
+  const act = e.target.dataset && e.target.dataset.act; if (!act) return;
+  if (act === 'print'){ window.print(); return; }
+  if (act === 'json'){ download('intune-assignments.json', JSON.stringify(RAW, null, 2), 'application/json'); return; }
+  if (act === 'csv-assignments'){
+    const rows = [['policyId','policyName','resourceType','platform','mode','targetType','targetId','targetName','intent','filterId','filterType','source','viaPolicySet']];
+    filteredPolicies().forEach(p => visibleTargets(p).forEach(t => rows.push([
+      p.id, p.name, p.resourceType, platLabel(p.platform), t.mode, t.targetType,
+      t.isGroup ? t.key : '', t.name, t.intent||'', t.filterId||'', t.filterType||'', t.source, t.viaName||''])));
+    download('intune-assignments.csv', toCsv(rows), 'text/csv');
+  }
+  if (act === 'csv-policies'){
+    const rows = [['policyId','policyName','resourceType','platform','publisher','assignmentCount','includes','excludes','targets','usesFilter','broadTargeting']];
+    filteredPolicies().forEach(p => rows.push([p.id, p.name, p.resourceType, platLabel(p.platform), p.publisher,
+      p.targets.length, p.includes.length, p.excludes.length,
+      p.targets.map(t => (t.exclude?'-':'+') + t.name).join('; '), p.hasFilter?'yes':'no', p.broad?'yes':'no']));
+    download('intune-policies.csv', toCsv(rows), 'text/csv');
+  }
+  if (act === 'csv-groups'){
+    const rows = [['groupId','groupName','kind','includedCount','excludedCount','includedPolicies','excludedPolicies']];
+    filteredGroups().forEach(g => rows.push([g.kind==='group'?g.key:'', g.name, g.kind,
+      g.includes.length, g.excludes.length,
+      g.includes.map(x=>x.policy.name).join('; '), g.excludes.map(x=>x.policy.name).join('; ')]));
+    download('intune-groups.csv', toCsv(rows), 'text/csv');
+  }
+};
+function toCsv(rows){
+  return rows.map(r => r.map(c => {
+    const s = String(c ?? '');
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }).join(',')).join('\r\n');
+}
+function download(name, text, mime){
+  const blob = new Blob(['﻿' + text], {type: mime + ';charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 500);
+  toast(name + ' downloaded');
+}
+
+/* keyboard */
+document.addEventListener('keydown', e => {
+  const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if (e.key === '/' && !typing){ e.preventDefault(); qEl.focus(); qEl.select(); return; }
+  if (e.key === 'Escape'){ if (qEl.value){ qEl.value=''; S.q=''; render(); } qEl.blur(); tipHide(); return; }
+  if (typing) return;
+  const views = {'1':'overview','2':'groups','3':'policies','4':'matrix'};
+  if (views[e.key]){ setView(views[e.key]); render(); window.scrollTo({top:0}); }
+  else if (e.key === 'e') document.getElementById('expandall').click();
+  else if (e.key === 'c') document.getElementById('collapseall').click();
+  else if (e.key === 't') document.getElementById('themebtn').click();
+  else if (e.key === 'i') document.getElementById('importbtn').click();
+});
+
+/* header meta */
+function updateMeta(){
+  document.getElementById('tabn-groups').textContent = fmt(groups.length);
+  document.getElementById('tabn-policies').textContent = fmt(policies.length);
+  const when = RAW.generatedUtc ? new Date(RAW.generatedUtc) : null;
+  const rel = when ? relTime(when) : '';
+  const sub = document.getElementById('brandsub');
+  sub.textContent = [RAW.environment, RAW.tenantId ? 'tenant ' + short(RAW.tenantId) : '',
+    when ? 'exported ' + when.toLocaleString() + ' (' + rel + ')' : '']
+    .filter(Boolean).join('  ·  ');
+  if (SOURCE.name){
+    const tag = el('span','srcpill');
+    tag.append(icon('M4 2h5l3 3v9H4z', 11), document.createTextNode(SOURCE.name));
+    sub.append(tag);
+    if (HAS_BUILTIN){
+      const rev = el('button','linkbtn'); rev.textContent = 'use built-in data';
+      rev.style.fontSize = '11px';
+      rev.onclick = () => loadBuiltIn(true);
+      sub.append(rev);
+    }
+  }
+  document.getElementById('footmeta').textContent =
+    'Graph ' + (RAW.apiVersion||'') + ' · ' + fmt(RAW.policyCount ?? policies.length) + ' policies · ' +
+    fmt(RAW.assignmentCount ?? policies.reduce((n,p)=>n+p.targets.length,0)) + ' assignments · ' +
+    fmt(RAW.groupCount ?? groups.filter(g=>g.kind==='group').length) + ' groups · generated by ' + (RAW.generatedBy||'—');
+}
+function relTime(d){
+  const s = (Date.now() - d.getTime())/1000;
+  const u = [[31536000,'year'],[2592000,'month'],[86400,'day'],[3600,'hour'],[60,'minute']];
+  for (const [sec,name] of u){ if (Math.abs(s) >= sec){ const n = Math.round(s/sec); return n + ' ' + name + (Math.abs(n)>1?'s':'') + (n>=0?' ago':' from now'); } }
+  return 'just now';
+}
+
+/* ==========================================================================
+   11. Datasets — built-in, imported file, or none
+   ========================================================================== */
+const LS_KEY = 'intune-dash-dataset';
+const SOURCE = {name:'', stored:false};
+let HAS_BUILTIN = false, BUILTIN = null;
+
+try {
+  const txt = document.getElementById('intune-data').textContent.trim();
+  if (txt && txt !== '__' + 'DATA__'){ BUILTIN = JSON.parse(txt); HAS_BUILTIN = validate(BUILTIN) === null; }
+} catch(e){ HAS_BUILTIN = false; }
+
+/** returns null when the payload looks like an assignment export, else why not */
+function validate(d){
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return 'the file is not a JSON object';
+  if (!Array.isArray(d.policies)) return 'no "policies" array — this is not an Intune assignment export';
+  if (d.groupIndex && typeof d.groupIndex !== 'object') return '"groupIndex" is not an object';
+  if (d.policies.length && typeof d.policies[0].displayName === 'undefined' && typeof d.policies[0].id === 'undefined')
+    return 'the "policies" entries have no id or displayName';
+  return null;
+}
+
+/** swap in a dataset and re-render everything that depends on it */
+function useDataset(raw, sourceName, remember){
+  buildModel(raw);
+  SOURCE.name = sourceName || '';
+  buildFilterOptions();
+  document.getElementById('reset').click();   // clears query + filters, then renders
+  openSet.clear();
+  updateMeta();
+  document.body.classList.remove('nodata');
+  if (remember){
+    try { localStorage.setItem(LS_KEY, JSON.stringify({name: sourceName, data: raw})); SOURCE.stored = true; }
+    catch(e){ toast('Imported (too large to remember between visits)'); }
+  }
+  render();
+}
+function loadBuiltIn(announce){
+  try { localStorage.removeItem(LS_KEY); } catch(e){}
+  useDataset(BUILTIN, '', false);
+  if (announce) toast('Back to the built-in dataset');
+}
+function importText(text, name){
+  let data;
+  try { data = JSON.parse(text.replace(/^\uFEFF/, '')); }
+  catch(e){ showError(name, 'that file is not valid JSON — ' + e.message); return; }
+  const why = validate(data);
+  if (why){ showError(name, why); return; }
+  useDataset(data, name, true);
+  toast(name + ' loaded — ' + fmt(data.policies.length) + ' policies');
+  setView('overview'); render(); window.scrollTo({top:0});
+}
+function importFile(file){
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = () => importText(String(r.result), file.name);
+  r.onerror = () => showError(file.name, 'the file could not be read');
+  r.readAsText(file);
+}
+function showError(name, why){
+  toast('Could not import ' + name);
+  const msg = 'Could not import ' + name + ' — ' + why + '.';
+  const box = document.getElementById('importerr');
+  if (box){ box.textContent = msg; box.style.display = 'block'; return; }
+  document.querySelectorAll('.importbanner').forEach(n => n.remove());
+  const bn = el('div','banner importbanner');
+  bn.style.borderColor = 'color-mix(in oklab,var(--crit) 45%,var(--border))';
+  bn.style.background = 'color-mix(in oklab,var(--crit) 10%,transparent)';
+  const ic = el('div','hicon crit','!');
+  const box2 = el('div'); box2.style.flex = '1 1 auto'; box2.append(msg);
+  const x = el('button','linkbtn','Dismiss'); x.onclick = () => bn.remove();
+  bn.append(ic, box2, x);
+  const v = document.getElementById('view-' + S.view);
+  v.prepend(bn);
+  bn.scrollIntoView({block:'nearest'});
+}
+
+/* import controls */
+const fileInput = document.getElementById('fileinput');
+fileInput.onchange = () => { importFile(fileInput.files[0]); fileInput.value = ''; };
+document.getElementById('importbtn').onclick = () => fileInput.click();
+exportMenu.querySelector('[data-act="import"]').onclick = () => fileInput.click();
+
+/* drag & drop anywhere on the page */
+const dropzone = document.getElementById('dropzone');
+let dragDepth = 0;
+addEventListener('dragenter', e => {
+  if (![...(e.dataTransfer?.types||[])].includes('Files')) return;
+  e.preventDefault(); if (++dragDepth === 1) dropzone.classList.add('on');
+});
+addEventListener('dragover', e => { if ([...(e.dataTransfer?.types||[])].includes('Files')) e.preventDefault(); });
+addEventListener('dragleave', () => { if (--dragDepth <= 0){ dragDepth = 0; dropzone.classList.remove('on'); } });
+addEventListener('drop', e => {
+  if (![...(e.dataTransfer?.types||[])].includes('Files')) return;
+  e.preventDefault(); dragDepth = 0; dropzone.classList.remove('on');
+  importFile(e.dataTransfer.files[0]);
+});
+
+/* empty state — shown when there is no dataset at all */
+function renderNoData(){
+  document.body.classList.add('nodata');
+  document.getElementById('brandsub').textContent = 'No dataset loaded';
+  document.getElementById('footmeta').textContent = 'No dataset loaded';
+  const v = document.getElementById('view-overview'); v.textContent = '';
+  const card = el('div','card welcome');
+  card.append(el('div','wico','{ }'));
+  card.append(el('h2', null, 'Import an Intune assignment export'));
+  card.append(el('p', null, 'Drop a JSON export anywhere on this page, or pick a file. Everything runs locally in your browser — nothing is uploaded.'));
+  const b = el('button','bigbtn','Choose a JSON file…');
+  b.onclick = () => fileInput.click();
+  card.append(b);
+  const err = el('div','imperr'); err.id = 'importerr'; err.style.display = 'none';
+  card.append(err);
+  const hint = el('p','hintsmall');
+  hint.append('Expected shape: an object with a ');
+  hint.append(el('code', null, 'policies'));
+  hint.append(' array (each with ');
+  hint.append(el('code', null, 'assignments'));
+  hint.append(') and an optional ');
+  hint.append(el('code', null, 'groupIndex'));
+  hint.append(' map — the output of the assignment collector script.');
+  card.append(hint);
+  v.append(card);
+  setView('overview');
+}
+
+/* boot: remembered import > built-in > empty state */
+(function boot(){
+  const view = (location.hash || '').replace(/^#/, '');
+  let stored = null;
+  try {
+    const txt = localStorage.getItem(LS_KEY);
+    if (txt){ const o = JSON.parse(txt); if (validate(o.data) === null) stored = o; }
+  } catch(e){}
+
+  if (stored){ useDataset(stored.data, stored.name, false); SOURCE.stored = true; updateMeta(); }
+  else if (HAS_BUILTIN){ useDataset(BUILTIN, '', false); }
+  else { renderNoData(); return; }
+
+  setView(/^(overview|groups|policies|matrix)$/.test(view) ? view : 'overview');
+  render();
+})();
+</script>
+</body>
+</html>
