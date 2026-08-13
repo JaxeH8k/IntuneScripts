@@ -429,57 +429,57 @@ function Get-ResourceAssignments {
 }
 
 #endregion
-
-#region --- Connect ---
-
-Write-Host "`n=== Intune Assignment Index Export ===" -ForegroundColor Cyan
-Write-Host "Environment : $Environment ($graphBaseUrl)" -ForegroundColor Cyan
-Write-Host "Output      : $Path" -ForegroundColor Cyan
-Write-Host ""
-
-$requiredScopes = @(
-    "DeviceManagementConfiguration.Read.All"
-    "DeviceManagementApps.Read.All"
-    "DeviceManagementManagedDevices.Read.All"
-    "DeviceManagementServiceConfig.Read.All"
-    "DeviceManagementRBAC.Read.All"
-    "Group.Read.All"
-)
-if ($IncludeConditionalAccess) { $requiredScopes += "Policy.Read.All" }
-
-$context = $null
-try { $context = Get-MgContext } catch { $context = $null }
-
-$missingScopes = @()
-if ($context) {
-    $missingScopes = @($requiredScopes | Where-Object { $_ -notin $context.Scopes })
-}
-
-if ($context -and $missingScopes.Count -eq 0) {
-    Write-Host "Reusing existing Graph connection ($($context.Account))." -ForegroundColor Green
-}
-else {
-    if ($context) { Write-Host "Existing connection is missing scopes: $($missingScopes -join ', ')" -ForegroundColor Yellow }
-    Write-Host "Connecting to Microsoft Graph ($($graphEnvironments[$Environment]))..." -ForegroundColor Yellow
-    try {
-        $connectParams = @{
-            Scopes      = $requiredScopes
-            Environment = $graphEnvironments[$Environment]
-            NoWelcome   = $true
-            ErrorAction = 'Stop'
-        }
-        if ($UseDeviceCode) { $connectParams['UseDeviceCode'] = $true }
-        Connect-MgGraph @connectParams
-        $context = Get-MgContext
-        Write-Host "Connected as $($context.Account)." -ForegroundColor Green
-    }
-    catch {
-        Write-Error "Failed to connect to Microsoft Graph: $($_.Exception.Message)"
-        return
-    }
-}
-Write-Host ""
-
+#
+##region --- Connect ---
+#
+#Write-Host "`n=== Intune Assignment Index Export ===" -ForegroundColor Cyan
+#Write-Host "Environment : $Environment ($graphBaseUrl)" -ForegroundColor Cyan
+#Write-Host "Output      : $Path" -ForegroundColor Cyan
+#Write-Host ""
+#
+#$requiredScopes = @(
+#    "DeviceManagementConfiguration.Read.All"
+#    "DeviceManagementApps.Read.All"
+#    "DeviceManagementManagedDevices.Read.All"
+#    "DeviceManagementServiceConfig.Read.All"
+#    "DeviceManagementRBAC.Read.All"
+#    "Group.Read.All"
+#)
+#if ($IncludeConditionalAccess) { $requiredScopes += "Policy.Read.All" }
+#
+#$context = $null
+#try { $context = Get-MgContext } catch { $context = $null }
+#
+#$missingScopes = @()
+#if ($context) {
+#    $missingScopes = @($requiredScopes | Where-Object { $_ -notin $context.Scopes })
+#}
+#
+#if ($context -and $missingScopes.Count -eq 0) {
+#    Write-Host "Reusing existing Graph connection ($($context.Account))." -ForegroundColor Green
+#}
+#else {
+#    if ($context) { Write-Host "Existing connection is missing scopes: $($missingScopes -join ', ')" -ForegroundColor Yellow }
+#    Write-Host "Connecting to Microsoft Graph ($($graphEnvironments[$Environment]))..." -ForegroundColor Yellow
+#    try {
+#        $connectParams = @{
+#            Scopes      = $requiredScopes
+#            Environment = $graphEnvironments[$Environment]
+#            NoWelcome   = $true
+#            ErrorAction = 'Stop'
+#        }
+#        if ($UseDeviceCode) { $connectParams['UseDeviceCode'] = $true }
+#        Connect-MgGraph @connectParams
+#        $context = Get-MgContext
+#        Write-Host "Connected as $($context.Account)." -ForegroundColor Green
+#    }
+#    catch {
+#        Write-Error "Failed to connect to Microsoft Graph: $($_.Exception.Message)"
+#        return
+#    }
+#}
+#Write-Host ""
+#
 #endregion
 
 #region --- Collect ---
