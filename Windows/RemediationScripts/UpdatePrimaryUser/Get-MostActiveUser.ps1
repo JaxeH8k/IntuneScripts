@@ -173,5 +173,5 @@ $output = [PSCustomObject]@{
     ScoredAt          = (Get-Date).ToString('o')
 }
 
-$output | ConvertTo-Json
-Write-Verbose ($ranked | Format-Table Account, SID, ResolutionMethod, DaysSinceLast, DistinctLoginDays, TotalHours, CompositeScore -AutoSize | Out-String)
+return $output | ConvertTo-Json -depth 5 -compress
+exit 0

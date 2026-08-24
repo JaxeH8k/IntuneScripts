@@ -1,1 +1,9 @@
 **/.DS_Store
+# Graph activity logs - contain UPNs, SIDs and device ids
+logs/
+graph-activity-*.jsonl
+*.csv
+*.jsonl
+Windows/RemediationScripts/UpdatePrimaryUser/tests/mem.ps1
+Windows/RemediationScripts/UpdatePrimaryUser/tests/sorting-alg2.ps1
+.gitignore
