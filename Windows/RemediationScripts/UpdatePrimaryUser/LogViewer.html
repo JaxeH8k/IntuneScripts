@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Primary User Log Viewer</title>
+<style>
+:root {
+  color-scheme: light;
+  --page:        #f9f9f7;
+  --surface:     #fcfcfb;
+  --ink:         #0b0b0b;
+  --ink-2:       #52514e;
+  --muted:       #898781;
+  --grid:        #e1e0d9;
+  --axis:        #c3c2b7;
+  --border:      rgba(11,11,11,0.10);
+  --shadow:      0 1px 2px rgba(11,11,11,0.05), 0 4px 16px rgba(11,11,11,0.04);
+  --good:        #0ca30c;
+  --warning:     #fab219;
+  --critical:    #d03b3b;
+  --accent:      #2a78d6;
+  --wash:        rgba(11,11,11,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page:      #0d0d0d;
+    --surface:   #1a1a19;
+    --ink:       #ffffff;
+    --ink-2:     #c3c2b7;
+    --muted:     #898781;
+    --grid:      #2c2c2a;
+    --axis:      #383835;
+    --border:    rgba(255,255,255,0.10);
+    --shadow:    none;
+    --accent:    #3987e5;
+    --wash:      rgba(255,255,255,0.06);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page:        #0d0d0d;
+  --surface:     #1a1a19;
+  --ink:         #ffffff;
+  --ink-2:       #c3c2b7;
+  --muted:       #898781;
+  --grid:        #2c2c2a;
+  --axis:        #383835;
+  --border:      rgba(255,255,255,0.10);
+  --shadow:      none;
+  --accent:      #3987e5;
+  --wash:        rgba(255,255,255,0.06);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 72px; }
+
+/* ---------- header ---------- */
+header.top { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+header.top > div:first-child { flex: 1 1 320px; }
+header.top h1 { font-size: 20px; font-weight: 620; margin: 0 0 2px; letter-spacing: -0.01em; }
+header.top p { margin: 0; color: var(--ink-2); font-size: 13px; }
+.spacer { flex: 1 1 auto; }
+
+button, .btn, label.btn {
+  font: inherit; font-size: 13px;
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 12px; cursor: pointer; white-space: nowrap;
+  transition: background 120ms ease;
+}
+button:hover, .btn:hover { background: var(--wash); }
+button.primary { background: var(--accent); border-color: transparent; color: #fff; font-weight: 550; }
+button.primary:hover { filter: brightness(1.06); background: var(--accent); }
+button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ---------- drop zone ---------- */
+#drop {
+  border: 1.5px dashed var(--axis); border-radius: 14px;
+  background: var(--surface);
+  padding: 44px 24px; text-align: center;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+#drop.hot { border-color: var(--accent); background: var(--wash); }
+#drop h2 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+#drop p { margin: 0 auto 18px; color: var(--ink-2); max-width: 52ch; font-size: 13px; }
+#drop .hint { font-size: 12px; color: var(--muted); margin-top: 16px; margin-bottom: 0; }
+#fileInput { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+/* ---------- file chips ---------- */
+#files { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 4px 6px 4px 11px;
+  font-size: 12px; color: var(--ink-2);
+}
+.chip b { font-weight: 550; color: var(--ink); }
+.chip button {
+  border: 0; background: transparent; padding: 0 4px; line-height: 1;
+  color: var(--muted); font-size: 15px; border-radius: 999px;
+}
+.chip button:hover { color: var(--critical); background: transparent; }
+
+/* ---------- cards ---------- */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; box-shadow: var(--shadow);
+  padding: 18px 20px; margin-top: 18px;
+}
+.card > h2 {
+  margin: 0 0 2px; font-size: 14px; font-weight: 600; letter-spacing: -0.005em;
+}
+.card > h2 + .sub { margin: 0 0 16px; font-size: 12px; color: var(--muted); }
+
+/* ---------- stat tiles ---------- */
+#tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 18px; }
+.tile {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow);
+}
+.tile .label { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+.tile .value { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; }
+.dot { width: 9px; height: 9px; border-radius: 3px; flex: 0 0 auto; }
+.dot.good { background: var(--good); }
+.dot.warning { background: var(--warning); }
+.dot.critical { background: var(--critical); }
+
+/* ---------- chart ---------- */
+#chartHost { position: relative; }
+#chartLegend { display: flex; gap: 16px; flex-wrap: wrap; margin: 0 0 10px; font-size: 12px; color: var(--ink-2); }
+#chartLegend span { display: inline-flex; align-items: center; gap: 6px; }
+#chart svg { display: block; }
+#chart rect.hit { fill: transparent; cursor: pointer; }
+#chart rect.hit:hover ~ rect.band, #chart rect.band.on { fill: var(--wash); }
+#tooltip {
+  position: absolute; pointer-events: none; opacity: 0;
+  transform: translate(-50%, -100%);
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.16);
+  padding: 9px 11px; font-size: 12px; white-space: nowrap;
+  transition: opacity 90ms ease; z-index: 5;
+}
+#tooltip .tt-date { font-weight: 600; margin-bottom: 5px; }
+#tooltip .tt-row { display: flex; align-items: center; gap: 7px; }
+#tooltip .tt-row .n { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 550; }
+
+/* ---------- filters ---------- */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.filters input[type=search], .filters select {
+  font: inherit; font-size: 13px; color: var(--ink);
+  background: var(--page); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px;
+}
+.filters input[type=search] { min-width: 240px; flex: 1 1 240px; }
+#activeDay {
+  display: none; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--ink-2);
+  background: var(--wash); border-radius: 999px; padding: 5px 6px 5px 11px;
+}
+#activeDay.on { display: inline-flex; }
+#activeDay button { border: 0; background: transparent; padding: 0 4px; color: var(--muted); font-size: 15px; line-height: 1; }
+
+/* ---------- table ---------- */
+.tablewrap { overflow-x: auto; border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface); color: var(--ink-2);
+  font-weight: 550; font-size: 12px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid var(--axis);
+}
+th:hover { color: var(--ink); }
+th .arrow { color: var(--muted); font-size: 10px; }
+tbody tr:hover { background: var(--wash); }
+tbody tr:last-child td { border-bottom: 0; }
+td.mono, th.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+td.num { font-variant-numeric: tabular-nums; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 550; }
+.badge .ico { font-size: 11px; line-height: 1; }
+.badge.updated { color: var(--good); }
+.badge.skipped { color: var(--warning); }
+.badge.failed  { color: var(--critical); }
+:root:not([data-theme="dark"]) .badge.skipped { color: #8a6000; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge.skipped { color: var(--warning); } }
+.none { color: var(--muted); font-style: italic; }
+.arrow-sep { color: var(--muted); padding: 0 2px; }
+
+.empty { text-align: center; color: var(--muted); padding: 34px 0; font-size: 13px; }
+#issues { margin-top: 14px; font-size: 12px; color: var(--muted); }
+footer.note { margin-top: 26px; font-size: 12px; color: var(--muted); text-align: center; }
+[hidden] { display: none !important; }
+@media print { #drop, .filters, header.top button, header.top label { display: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div>
+    <h1>Primary User Log Viewer</h1>
+    <p>Reads <code>graph-activity-*.jsonl</code> locally in your browser. Nothing is uploaded.</p>
+  </div>
+  <div class="spacer"></div>
+  <button id="themeBtn" title="Toggle light / dark" aria-label="Toggle light or dark theme">&#9681;</button>
+  <button id="csvBtn" hidden>Export CSV</button>
+  <label class="btn" for="fileInput" id="addBtn" hidden>Add logs&hellip;</label>
+</header>
+
+<section id="drop">
+  <h2>Drop your JSONL log files here</h2>
+  <p>Or pick them from <code>./logs/</code>. Import several days at once &mdash; they are merged, de-duplicated and charted together.</p>
+  <label class="btn" for="fileInput" style="font-weight:550">Choose files&hellip;</label>
+  <input id="fileInput" type="file" multiple accept=".jsonl,.json,.log,.txt,text/plain">
+  <p class="hint">Everything runs offline in this page &mdash; no server, no network calls.</p>
+</section>
+
+<div id="files"></div>
+<div id="issues"></div>
+
+<main id="report" hidden>
+
+  <div id="tiles"></div>
+
+  <section class="card">
+    <h2>Primary user changes by day</h2>
+    <p class="sub" id="chartSub"></p>
+    <div id="chartLegend">
+      <span><i class="dot good"></i> Updated</span>
+      <span><i class="dot warning"></i> Skipped &mdash; unlicensed or deleted</span>
+      <span><i class="dot critical"></i> Failed</span>
+    </div>
+    <div id="chartHost">
+      <div id="chart"></div>
+      <div id="tooltip" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Device changes</h2>
+    <p class="sub" id="tableSub"></p>
+    <div class="filters">
+      <input id="search" type="search" placeholder="Filter device, user, run id&hellip;" aria-label="Filter rows">
+      <select id="statusFilter" aria-label="Filter by result">
+        <option value="all">All results</option>
+        <option value="updated">Updated only</option>
+        <option value="skipped">Skipped only</option>
+        <option value="failed">Failed only</option>
+      </select>
+      <span id="activeDay"><span id="activeDayText"></span><button type="button" id="clearDay" title="Clear day filter">&times;</button></span>
+    </div>
+    <div class="tablewrap">
+      <table id="table">
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="tableEmpty" hidden>No rows match the current filter.</div>
+  </section>
+
+</main>
+
+<footer class="note">
+  Source records: <code>Operation = SetPrimaryUser</code> in the JSONL activity log.
+</footer>
+
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * State
+ * ------------------------------------------------------------------ */
+const state = {
+  files: [],          // [{name, size, records, events, badLines}]
+  events: [],         // merged + de-duplicated change events
+  seen: new Set(),    // de-dup keys across all imported files
+  dupes: 0,
+  reimported: 0,
+  badLines: 0,
+  sortKey: "time",
+  sortDir: -1,        // -1 newest first
+  day: null           // yyyy-mm-dd selected from the chart
+};
+
+const STATUS = {
+  updated: { label: "Updated", cls: "updated", ico: "●", color: "var(--good)" },
+  skipped: { label: "Skipped", cls: "skipped", ico: "▲", color: "var(--warning)" },
+  failed:  { label: "Failed",  cls: "failed",  ico: "✖", color: "var(--critical)" }
+};
+const ORDER = ["updated", "skipped", "failed"];
+const DOT = { updated: "good", skipped: "warning", failed: "critical" };
+
+/* ------------------------------------------------------------------ *
+ * Parsing
+ * ------------------------------------------------------------------ */
+
+// Details is a compact JSON string on the wire, but tolerate an object or ''.
+function parseDetails(d) {
+  if (!d) return {};
+  if (typeof d === "object") return d;
+  try {
+    const v = JSON.parse(d);
+    return (v && typeof v === "object") ? v : {};
+  } catch (e) { return {}; }
+}
+
+function classify(rec) {
+  if (rec.Operation !== "SetPrimaryUser") return null;
+  const msg = rec.Message || "";
+  // Terminal records only. The Verbose "POST succeeded" record and the Warning
+  // "HTTP 429, cooling off" retry records describe the same attempt and would
+  // otherwise double-count it.
+  if (rec.Level === "Information" && /^Primary user set/i.test(msg)) return "updated";
+  if (rec.Level === "Warning" && /^Skipped\b/i.test(msg)) return "skipped";
+  if (rec.Level === "Error") return "failed";
+  return null;
+}
+
+function localDayKey(d) {
+  const p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+
+function ingest(text, fileName) {
+  // Same name and same byte count - the operator picked the file twice. Every record
+  // would de-duplicate anyway; skipping keeps the file list honest.
+  if (state.files.some(f => f.name === fileName && f.size === text.length)) {
+    state.reimported++;
+    return;
+  }
+
+  const lines = text.split(/\r?\n/);
+  const records = [];
+  let bad = 0;
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    try { records.push(JSON.parse(t)); }
+    catch (e) { bad++; }
+  }
+
+  // Pass 1 - context map. deviceName / previousUserUpn / newUserUpn ride along in
+  // Details on every record a call produces, so a terminal record that predates
+  // those fields can still be enriched from a sibling record in the same run.
+  const ctx = new Map();
+  for (const r of records) {
+    const id = r.DeviceId;
+    if (!id) continue;
+    const d = parseDetails(r.Details);
+    if (!d.deviceName && !d.previousUserUpn && !d.newUserUpn) continue;
+    const key = (r.RunId || "") + "|" + id;
+    const c = ctx.get(key) || {};
+    if (d.deviceName) c.deviceName = d.deviceName;
+    if (d.previousUserUpn) c.previousUserUpn = d.previousUserUpn;
+    if (d.newUserUpn) c.newUserUpn = d.newUserUpn;
+    ctx.set(key, c);
+  }
+
+  // Pass 2 - the change events themselves.
+  const events = [];
+  let dupes = 0;
+
+  for (const r of records) {
+    const status = classify(r);
+    if (!status) continue;
+
+    const dupKey = [r.RunId, r.TimeGenerated, r.DeviceId, r.Level, r.Message].join("|");
+    if (state.seen.has(dupKey)) { dupes++; continue; }
+    state.seen.add(dupKey);
+
+    const d = parseDetails(r.Details);
+    const c = ctx.get((r.RunId || "") + "|" + r.DeviceId) || {};
+    const when = new Date(r.TimeGenerated);
+
+    events.push({
+      key:         dupKey,
+      time:        isNaN(when) ? null : when,
+      day:         isNaN(when) ? "" : localDayKey(when),
+      status:      status,
+      deviceName:  d.deviceName || c.deviceName || "",
+      deviceId:    r.DeviceId || "",
+      oldUser:     d.previousUserUpn || c.previousUserUpn || "",
+      newUser:     d.newUserUpn || c.newUserUpn || "",
+      userId:      r.TargetUserId || "",
+      runId:       r.RunId || "",
+      reason:      status === "updated" ? "" : (d.graphError || r.Message || ""),
+      file:        fileName
+    });
+  }
+
+  state.dupes += dupes;
+  state.badLines += bad;
+  state.files.push({ name: fileName, size: text.length, records: records.length, events: events.length, bad });
+  state.events = state.events.concat(events);
+}
+
+/* ------------------------------------------------------------------ *
+ * File handling
+ * ------------------------------------------------------------------ */
+const $ = id => document.getElementById(id);
+
+function loadFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+
+  let pending = files.length;
+  for (const f of files) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { ingest(String(reader.result), f.name); }
+      catch (e) { console.error("Failed to read " + f.name, e); }
+      if (--pending === 0) renderAll();
+    };
+    reader.onerror = () => { if (--pending === 0) renderAll(); };
+    reader.readAsText(f);
+  }
+}
+
+function removeFile(name) {
+  state.files = state.files.filter(f => f.name !== name);
+  state.events = state.events.filter(e => e.file !== name);
+  // Rebuild the de-dup set so the same file can be re-imported after removal.
+  state.seen = new Set();
+  state.dupes = 0;
+  state.reimported = 0;
+  state.badLines = state.files.reduce((a, f) => a + f.bad, 0);
+  for (const e of state.events) state.seen.add(e.key);
+  renderAll();
+}
+
+$("fileInput").addEventListener("change", e => { loadFiles(e.target.files); e.target.value = ""; });
+
+const drop = $("drop");
+["dragenter", "dragover"].forEach(ev =>
+  document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("hot"); }));
+["dragleave", "drop"].forEach(ev =>
+  document.addEventListener(ev, e => {
+    e.preventDefault();
+    if (ev === "drop" || !e.relatedTarget) drop.classList.remove("hot");
+  }));
+document.addEventListener("drop", e => {
+  e.preventDefault();
+  if (e.dataTransfer && e.dataTransfer.files) loadFiles(e.dataTransfer.files);
+});
+
+/* ------------------------------------------------------------------ *
+ * Render - files, tiles
+ * ------------------------------------------------------------------ */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function renderFiles() {
+  $("files").innerHTML = state.files.map(f =>
+    '<span class="chip"><b>' + esc(f.name) + '</b>' + f.events + ' change' + (f.events === 1 ? '' : 's') +
+    '<button type="button" data-file="' + esc(f.name) + '" title="Remove">&times;</button></span>'
+  ).join("");
+
+  $("files").querySelectorAll("button[data-file]").forEach(b =>
+    b.addEventListener("click", () => removeFile(b.dataset.file)));
+
+  const bits = [];
+  if (state.reimported) bits.push(state.reimported + " file" + (state.reimported === 1 ? "" : "s") + " already imported");
+  if (state.dupes) bits.push(state.dupes + " duplicate record" + (state.dupes === 1 ? "" : "s") + " ignored");
+  if (state.badLines) bits.push(state.badLines + " unparsable line" + (state.badLines === 1 ? "" : "s") + " skipped");
+  $("issues").textContent = bits.join(" · ");
+}
+
+function renderTiles() {
+  const counts = { updated: 0, skipped: 0, failed: 0 };
+  const devices = new Set(), runs = new Set(), days = new Set();
+  for (const e of state.events) {
+    counts[e.status]++;
+    if (e.deviceId) devices.add(e.deviceId);
+    if (e.runId) runs.add(e.runId);
+    if (e.day) days.add(e.day);
+  }
+
+  const tile = (label, value, dot) =>
+    '<div class="tile"><div class="label">' + (dot ? '<i class="dot ' + dot + '"></i>' : '') +
+    esc(label) + '</div><div class="value">' + value + '</div></div>';
+
+  $("tiles").innerHTML =
+    tile("Updated", counts.updated, "good") +
+    tile("Skipped", counts.skipped, "warning") +
+    tile("Failed", counts.failed, "critical") +
+    tile("Distinct devices", devices.size) +
+    tile("Runs", runs.size) +
+    tile("Days with changes", days.size);
+}
+
+/* ------------------------------------------------------------------ *
+ * Render - chart
+ * ------------------------------------------------------------------ */
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function dayLabel(key, withYear) {
+  const p = key.split("-");
+  return MONTHS[+p[1] - 1] + " " + (+p[2]) + (withYear ? " " + p[0] : "");
+}
+
+function buildSeries() {
+  const byDay = new Map();
+  for (const e of state.events) {
+    if (!e.day) continue;
+    if (!byDay.has(e.day)) byDay.set(e.day, { day: e.day, updated: 0, skipped: 0, failed: 0, total: 0 });
+    const b = byDay.get(e.day);
+    b[e.status]++; b.total++;
+  }
+  const keys = Array.from(byDay.keys()).sort();
+  if (!keys.length) return [];
+
+  // Fill the calendar gaps so the x-axis is real time, not a list of days that
+  // happen to have data. Bail out on absurd ranges rather than draw 5000 bars.
+  const first = new Date(keys[0] + "T00:00:00");
+  const last = new Date(keys[keys.length - 1] + "T00:00:00");
+  const span = Math.round((last - first) / 86400000);
+  if (span > 366) return keys.map(k => byDay.get(k));
+
+  const out = [];
+  for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
+    const k = localDayKey(d);
+    out.push(byDay.get(k) || { day: k, updated: 0, skipped: 0, failed: 0, total: 0 });
+  }
+  return out;
+}
+
+function niceTicks(max) {
+  if (max <= 0) return { top: 1, ticks: [0, 1] };
+  const raw = max / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  let step = [1, 2, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+  step = Math.max(1, Math.round(step));   // whole devices only
+  const top = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = 0; v <= top + 1e-9; v += step) ticks.push(Math.round(v * 1000) / 1000);
+  return { top, ticks };
+}
+
+function topRoundedPath(x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h));
+  return "M" + x + "," + (y + h) + "V" + (y + r) +
+         "a" + r + "," + r + " 0 0 1 " + r + "," + (-r) +
+         "h" + (w - 2 * r) +
+         "a" + r + "," + r + " 0 0 1 " + r + "," + r +
+         "V" + (y + h) + "Z";
+}
+
+function renderChart() {
+  const host = $("chart");
+  const data = buildSeries();
+  host.innerHTML = "";
+  if (!data.length) return;
+
+  const multiYear = new Set(data.map(d => d.day.slice(0, 4))).size > 1;
+  const W = Math.max(320, host.clientWidth || 640);
+  const H = 260;
+  const M = { top: 18, right: 8, bottom: 34, left: 40 };
+  const iw = W - M.left - M.right;
+  const ih = H - M.top - M.bottom;
+
+  const max = Math.max(1, ...data.map(d => d.total));
+  const { top, ticks } = niceTicks(max);
+  const y = v => M.top + ih - (v / top) * ih;
+
+  const band = iw / data.length;
+  const bw = Math.max(3, Math.min(46, band * 0.68));
+  const GAP = 2;   // surface gap between stacked segments
+
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", H);
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Stacked bar chart of primary user changes per day");
+
+  const add = (tag, attrs, text) => {
+    const el = document.createElementNS(NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    if (text != null) el.textContent = text;
+    svg.appendChild(el);
+    return el;
+  };
+
+  // gridlines + y ticks
+  for (const t of ticks) {
+    add("line", { x1: M.left, x2: W - M.right, y1: y(t), y2: y(t),
+                  stroke: t === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1,
+                  "shape-rendering": "crispEdges" });
+    add("text", { x: M.left - 8, y: y(t) + 4, "text-anchor": "end",
+                  fill: "var(--muted)", "font-size": 11,
+                  "font-variant-numeric": "tabular-nums" }, String(t));
+  }
+
+  // selective x labels - never let them collide
+  const every = Math.max(1, Math.ceil((data.length * 56) / iw));
+
+  data.forEach((d, i) => {
+    const cx = M.left + band * i + band / 2;
+    const x = cx - bw / 2;
+
+    // hover band, drawn under the bar
+    const hb = add("rect", { class: "band", x: M.left + band * i, y: M.top,
+                             width: band, height: ih, fill: "transparent", rx: 6 });
+
+    // stacked segments, bottom (updated) to top
+    let cursor = M.top + ih;
+    const segs = ORDER.map(k => ({ k: k, v: d[k] })).filter(s => s.v > 0);
+    segs.forEach((s, si) => {
+      const isTop = si === segs.length - 1;
+      const full = (s.v / top) * ih;
+      const h = Math.max(1, full - (si > 0 ? GAP : 0));
+      const yy = cursor - h;
+      const attrs = { fill: STATUS[s.k].color };
+      if (isTop) {
+        add("path", Object.assign({ d: topRoundedPath(x, yy, bw, h, 4) }, attrs));
+      } else {
+        add("rect", Object.assign({ x: x, y: yy, width: bw, height: h }, attrs));
+      }
+      cursor = yy - GAP;
+    });
+
+    // direct label when the axis is not crowded
+    if (d.total > 0 && data.length <= 14) {
+      add("text", { x: cx, y: y(d.total) - 7, "text-anchor": "middle",
+                    fill: "var(--ink-2)", "font-size": 11, "font-weight": 550 }, String(d.total));
+    }
+
+    if (i % every === 0 || i === data.length - 1) {
+      add("text", { x: cx, y: H - 12, "text-anchor": "middle",
+                    fill: "var(--muted)", "font-size": 11 }, dayLabel(d.day, multiYear));
+    }
+
+    // hit target on top of everything, wider than the mark
+    const hit = add("rect", { class: "hit", x: M.left + band * i, y: M.top, width: band, height: ih });
+    hit.addEventListener("mouseenter", () => { hb.classList.add("on"); showTip(d, cx, y(d.total)); });
+    hit.addEventListener("mouseleave", () => { hb.classList.remove("on"); hideTip(); });
+    hit.addEventListener("click", () => selectDay(state.day === d.day ? null : d.day));
+    if (state.day === d.day) hb.classList.add("on");
+  });
+
+  host.appendChild(svg);
+}
+
+function showTip(d, cx, yTop) {
+  const tip = $("tooltip");
+  let html = '<div class="tt-date">' + dayLabel(d.day, true) + '</div>';
+  let any = false;
+  for (const k of ORDER) {
+    if (!d[k]) continue;
+    any = true;
+    html += '<div class="tt-row"><i class="dot ' + DOT[k] + '"></i>' +
+            STATUS[k].label + '<span class="n">' + d[k] + '</span></div>';
+  }
+  if (!any) html += '<div class="tt-row" style="color:var(--muted)">No changes</div>';
+
+  tip.innerHTML = html;
+  tip.style.opacity = "1";
+
+  // Measure, then place above the stack - or below it when the bar is tall enough
+  // that there is no room left above.
+  const h = tip.offsetHeight;
+  const above = yTop - 10;
+  const flip = above - h < 0;
+  tip.style.transform = flip ? "translate(-50%, 0)" : "translate(-50%, -100%)";
+  tip.style.top = (flip ? yTop + 12 : above) + "px";
+
+  // Keep it inside the chart box horizontally.
+  const w = tip.offsetWidth, host = $("chartHost").clientWidth;
+  tip.style.left = Math.max(w / 2 + 2, Math.min(cx, host - w / 2 - 2)) + "px";
+}
+
+function hideTip() { $("tooltip").style.opacity = "0"; }
+
+function selectDay(day) {
+  state.day = day;
+  const el = $("activeDay");
+  if (day) {
+    el.classList.add("on");
+    $("activeDayText").textContent = "Day: " + dayLabel(day, true);
+  } else {
+    el.classList.remove("on");
+  }
+  renderChart();
+  renderTable();
+}
+$("clearDay").addEventListener("click", () => selectDay(null));
+
+/* ------------------------------------------------------------------ *
+ * Render - table
+ * ------------------------------------------------------------------ */
+const COLS = [
+  { key: "time",       label: "When",           cls: "num" },
+  { key: "deviceName", label: "Device" },
+  { key: "deviceId",   label: "Device ID",      cls: "mono" },
+  { key: "oldUser",    label: "Previous user" },
+  { key: "newUser",    label: "New user" },
+  { key: "status",     label: "Result" },
+  { key: "runId",      label: "Run",            cls: "mono" }
+];
+
+function fmtTime(d) {
+  if (!d) return "";
+  const p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) +
+         " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+function visibleRows() {
+  const q = $("search").value.trim().toLowerCase();
+  const sf = $("statusFilter").value;
+
+  let rows = state.events.filter(e => {
+    if (state.day && e.day !== state.day) return false;
+    if (sf !== "all" && e.status !== sf) return false;
+    if (!q) return true;
+    return [e.deviceName, e.deviceId, e.oldUser, e.newUser, e.runId, e.userId, STATUS[e.status].label]
+      .join(" ").toLowerCase().includes(q);
+  });
+
+  const k = state.sortKey, dir = state.sortDir;
+  rows.sort((a, b) => {
+    let av = a[k], bv = b[k];
+    if (k === "time") { av = av ? av.getTime() : 0; bv = bv ? bv.getTime() : 0; }
+    else if (k === "status") { av = ORDER.indexOf(av); bv = ORDER.indexOf(bv); }
+    else { av = String(av || "").toLowerCase(); bv = String(bv || "").toLowerCase(); }
+    if (av < bv) return -dir;
+    if (av > bv) return dir;
+    return 0;
+  });
+  return rows;
+}
+
+function renderTable() {
+  $("thead").innerHTML = COLS.map(c =>
+    '<th class="' + (c.cls || "") + '" data-key="' + c.key + '">' + esc(c.label) +
+    (state.sortKey === c.key ? ' <span class="arrow">' + (state.sortDir === 1 ? "▲" : "▼") + '</span>' : '') +
+    '</th>').join("");
+
+  $("thead").querySelectorAll("th").forEach(th =>
+    th.addEventListener("click", () => {
+      const k = th.dataset.key;
+      if (state.sortKey === k) state.sortDir *= -1;
+      else { state.sortKey = k; state.sortDir = (k === "time") ? -1 : 1; }
+      renderTable();
+    }));
+
+  const rows = visibleRows();
+  $("tableEmpty").hidden = rows.length > 0;
+
+  $("tbody").innerHTML = rows.map(e => {
+    const s = STATUS[e.status];
+    const old = e.oldUser ? esc(e.oldUser) : '<span class="none">none</span>';
+    const neu = e.newUser ? esc(e.newUser) : (e.userId ? '<span class="mono">' + esc(e.userId) + '</span>' : '<span class="none">unknown</span>');
+    const name = e.deviceName ? esc(e.deviceName) : '<span class="none">unnamed</span>';
+    return '<tr' + (e.reason ? ' title="' + esc(e.reason) + '"' : '') + '>' +
+      '<td class="num">' + esc(fmtTime(e.time)) + '</td>' +
+      '<td>' + name + '</td>' +
+      '<td class="mono">' + esc(e.deviceId) + '</td>' +
+      '<td>' + old + '</td>' +
+      '<td>' + neu + '</td>' +
+      '<td><span class="badge ' + s.cls + '"><span class="ico">' + s.ico + '</span>' + s.label + '</span></td>' +
+      '<td class="mono" title="' + esc(e.runId) + '">' + esc(e.runId.slice(0, 8)) + '</td>' +
+      '</tr>';
+  }).join("");
+
+  const total = state.events.length;
+  $("tableSub").textContent = rows.length === total
+    ? total + " change" + (total === 1 ? "" : "s")
+    : rows.length + " of " + total + " changes shown";
+}
+
+$("search").addEventListener("input", renderTable);
+$("statusFilter").addEventListener("change", renderTable);
+
+/* ------------------------------------------------------------------ *
+ * CSV export
+ * ------------------------------------------------------------------ */
+function toCsv(v) {
+  const s = String(v == null ? "" : v);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+$("csvBtn").addEventListener("click", () => {
+  const rows = visibleRows();
+  const head = ["Time", "DeviceName", "DeviceId", "PreviousUser", "NewUser", "Result", "Reason", "RunId", "SourceFile"];
+  const body = rows.map(e => [
+    e.time ? e.time.toISOString() : "", e.deviceName, e.deviceId, e.oldUser,
+    e.newUser || e.userId, STATUS[e.status].label, e.reason, e.runId, e.file
+  ].map(toCsv).join(","));
+
+  const blob = new Blob([head.join(",") + "\r\n" + body.join("\r\n") + "\r\n"],
+                        { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "primary-user-changes.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+
+/* ------------------------------------------------------------------ *
+ * Theme
+ * ------------------------------------------------------------------ */
+try {
+  const saved = localStorage.getItem("pulv-theme");
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+} catch (e) { /* private mode - fine */ }
+
+$("themeBtn").addEventListener("click", () => {
+  const root = document.documentElement;
+  const dark = root.getAttribute("data-theme") === "dark" ||
+    (!root.hasAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+  const next = dark ? "light" : "dark";
+  root.setAttribute("data-theme", next);
+  try { localStorage.setItem("pulv-theme", next); } catch (e) { /* ignore */ }
+  renderChart();
+});
+
+/* ------------------------------------------------------------------ *
+ * Top level
+ * ------------------------------------------------------------------ */
+function renderAll() {
+  const has = state.events.length > 0 || state.files.length > 0;
+  renderFiles();
+  $("addBtn").hidden = !has;
+  $("csvBtn").hidden = state.events.length === 0;
+  $("report").hidden = state.events.length === 0;
+  $("drop").hidden = has;
+
+  if (!state.events.length) {
+    if (state.files.length) {
+      $("issues").textContent = ($("issues").textContent ? $("issues").textContent + " · " : "") +
+        "No SetPrimaryUser records found in the imported file(s).";
+    }
+    return;
+  }
+
+  const days = buildSeries();
+  $("chartSub").textContent = days.length === 1
+    ? dayLabel(days[0].day, true) + " · click a bar to filter the table"
+    : days.length + " days, " + dayLabel(days[0].day, true) + " – " +
+      dayLabel(days[days.length - 1].day, true) + " · click a bar to filter the table";
+
+  renderTiles();
+  renderChart();
+  renderTable();
+}
+
+let rt;
+addEventListener("resize", () => {
+  clearTimeout(rt);
+  rt = setTimeout(() => { if (state.events.length) renderChart(); }, 120);
+});
+
+renderAll();
+</script>
+</body>
+</html>
