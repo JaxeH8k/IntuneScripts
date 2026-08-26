@@ -43,6 +43,9 @@ for ($i = 0; $i -lt $devices.Count; $i++) {
 	}
 }
 
+$updated = 0
+$skipped = 0
+
 foreach($device in $updates){
 	$deviceId = $device.deviceId
 	$bucket = $prefixIndex[$deviceId.Substring(0, 4).ToLowerInvariant()]
@@ -54,11 +57,22 @@ foreach($device in $updates){
 			$upn = Resolve-EntraObjectId -Sid $device.userSid -Cache $cache -getUpn
 			if ($null -notlike $upn){
 				if ($upn -ne $intuneDevice.'Primary user UPN'){
-					# update Intune device primary user id
-					Set-IntunePrimaryUser -DeviceId $device.deviceId `
-						-UserObjectId $cache[($device.userSid)].id
+					# update Intune device primary user id. $false back means Graph refused the
+					# user (no Intune licence / deleted) - already logged, so keep going.
+					$changed = Set-IntunePrimaryUser -DeviceId $device.deviceId `
+						-UserObjectId $cache[($device.userSid)].id `
+						-DeviceName $intuneDevice.'Device name' `
+						-PreviousUserUpn $intuneDevice.'Primary user UPN' `
+						-NewUserUpn $upn
+					if ($changed) { $updated++ } else { $skipped++ }
 				}
 			}
 		}
 	}
+}
+
+Write-GraphLog -Level Information -Operation 'UpdatePrimaryUser' -Message "Run complete - $updated device(s) updated, $skipped skipped" -Data @{
+	devicesConsidered = $updates.Count
+	devicesUpdated    = $updated
+	devicesSkipped    = $skipped
 }

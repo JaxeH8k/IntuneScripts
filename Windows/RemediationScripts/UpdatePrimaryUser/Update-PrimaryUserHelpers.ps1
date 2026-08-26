@@ -24,6 +24,11 @@
 # Invoke-GraphRequest waits out the remaining window instead of each earning its own 429.
 # Script-scoped, so it lives as long as this file stays dot-sourced.
 $script:GraphCoolOffUntil = [datetime]::MinValue
+# Graph refuses the primary-user assignment with this when the target account has no Intune
+# licence, or has been deleted since the detection run. That is a problem with that one
+# user, not with the run, so Set-IntunePrimaryUser records it and moves on rather than
+# throwing and taking every device still queued behind it down with it.
+$script:UnlicensedUserPattern = 'does not have intune license|is deleted'
 
 function Invoke-JhGraphRequest {
     <#
@@ -296,22 +301,53 @@ function Set-IntunePrimaryUser {
 
         This navigation only exists on the beta endpoint - there is no v1.0 equivalent.
 
+        DeviceName/PreviousUserUpn/NewUserUpn are carried for the audit trail only. The ids
+        say what changed; these say it in the terms whoever reads the log back thinks in.
+
+        Returns $true when the assignment was made and $false when it was skipped because
+        Graph reported the target user as unlicensed or deleted. Every other Graph failure
+        still throws.
+
         Requires scope: DeviceManagementManagedDevices.ReadWrite.All
     #>
     param(
         [Parameter(Mandatory)][string]$DeviceId,        # Intune managedDevice id
-        [Parameter(Mandatory)][string]$UserObjectId    # Entra ID object id (GUID) - a UPN here returns 400
+        [Parameter(Mandatory)][string]$UserObjectId,    # Entra ID object id (GUID) - a UPN here returns 400
+        [string]$DeviceName,
+        [string]$PreviousUserUpn,
+        [string]$NewUserUpn
     )
 
     $uri  = "https://graph.microsoft.com/beta/deviceManagement/managedDevices/$DeviceId/users/`$ref"
     $body = @{ '@odata.id' = "https://graph.microsoft.com/beta/users/$UserObjectId" } | ConvertTo-Json
 
-    $logContext = @{ deviceId = $DeviceId; targetUserId = $UserObjectId }
+    # deviceId/targetUserId are promoted to their own log columns; the three names below ride
+    # along in Details, and are attached to every Graph record this call produces, not just
+    # the success one - a failed assignment is exactly when you want to know who it was for.
+    $logContext = @{
+        deviceId        = $DeviceId
+        targetUserId    = $UserObjectId
+        deviceName      = $DeviceName
+        previousUserUpn = $PreviousUserUpn
+        newUserUpn      = $NewUserUpn
+    }
 
-    Invoke-JhGraphRequest -Method POST -Uri $uri -Body $body -ContentType 'application/json' `
-        -Operation 'SetPrimaryUser' -LogContext $logContext | Out-Null
+    try {
+        Invoke-JhGraphRequest -Method POST -Uri $uri -Body $body -ContentType 'application/json' `
+            -Operation 'SetPrimaryUser' -LogContext $logContext | Out-Null
+    }
+    catch {
+        if ($_.Exception.Message -match $script:UnlicensedUserPattern) {
+            Write-GraphLog -Level Warning -Operation 'SetPrimaryUser' -Message 'Skipped - target user has no Intune license or is deleted' -Data ($logContext + @{
+                graphError = $_.Exception.Message
+            })
+            return $false
+        }
+        throw   # anything else is still a real failure
+    }
 
     # Information level: this is the record of a change actually made in the tenant, which
     # is what an auditor comes looking for. Everything above it is how we got here.
     Write-GraphLog -Level Information -Operation 'SetPrimaryUser' -Message 'Primary user set' -Data $logContext
+    return $true
 }
