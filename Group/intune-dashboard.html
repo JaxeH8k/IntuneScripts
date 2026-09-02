@@ -79,6 +79,23 @@ a{color:var(--s1)}
   cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:13px
 }
 .iconbtn:hover{background:var(--surface-2)}
+.switch{
+  background:var(--surface);border:1px solid var(--border-2);border-radius:8px;padding:6px 10px 6px 7px;
+  cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-size:13px;
+  color:var(--muted);flex:none
+}
+.switch:hover{background:var(--surface-2)}
+.switch .track{
+  width:26px;height:15px;border-radius:999px;background:var(--border-2);position:relative;flex:none;
+  transition:background .15s
+}
+.switch .knob{
+  position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:var(--surface);
+  box-shadow:0 1px 2px rgba(0,0,0,.28);transition:transform .15s
+}
+.switch[aria-checked="true"]{color:var(--ink)}
+.switch[aria-checked="true"] .track{background:var(--s1)}
+.switch[aria-checked="true"] .knob{transform:translateX(11px)}
 .menuwrap{position:relative}
 .menu{
   position:absolute;right:0;top:calc(100% + 6px);z-index:50;background:var(--surface);
@@ -317,7 +334,7 @@ footer{max-width:1400px;margin:0 auto;padding:22px 20px 40px;color:var(--muted);
 .srcpill + .linkbtn{margin-left:7px}
 
 /* import: empty state */
-body.nodata .tabs,body.nodata .filterbar,body.nodata .search,body.nodata .menuwrap{display:none}
+body.nodata .tabs,body.nodata .filterbar,body.nodata .search,body.nodata .switch,body.nodata .menuwrap{display:none}
 .welcome{max-width:560px;margin:8vh auto 0;padding:34px 32px;text-align:center}
 .welcome .wico{
   width:46px;height:46px;border-radius:12px;margin:0 auto 14px;display:grid;place-items:center;
@@ -382,6 +399,11 @@ body.nodata .tabs,body.nodata .filterbar,body.nodata .search,body.nodata .menuwr
       <input id="q" type="search" placeholder="Search policies, groups, IDs…" aria-label="Search" autocomplete="off">
       <kbd>/</kbd>
     </div>
+    <button class="switch" id="filterbtn" role="switch" aria-checked="true"
+            title="On: the search box narrows the lists to matches. Off: everything stays listed and hits are just highlighted.">
+      <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      <span>Filter</span>
+    </button>
     <input type="file" id="fileinput" accept=".json,application/json" hidden>
     <button class="iconbtn" id="importbtn" title="Import a JSON export (or drop one on the page)">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10.5v-8m0 0L5 5.5m3-3 3 3M2.5 11.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1"/></svg>
@@ -592,7 +614,11 @@ function buildModel(raw){
 /* ==========================================================================
    2. Filter state
    ========================================================================== */
-const S = {view:'overview', q:'', type:'', plat:'', state:'', mode:'', sort:'count'};
+const S = {view:'overview', q:'', qfilter:true, type:'', plat:'', state:'', mode:'', sort:'count'};
+
+/** the query as far as *filtering* is concerned — '' when the Filter switch is off,
+    so the lists stay whole and the query only drives highlighting */
+const qFilter = () => (S.qfilter ? S.q : '');
 
 /** '' = any platform, '__none' = policies with no platform metadata */
 function platMatch(p){ return !S.plat ? true : S.plat === '__none' ? !p.platform : p.platform === S.plat; }
@@ -611,7 +637,8 @@ function policyPasses(p){
     if (S.mode === 'Include' && !p.includes.length) return false;
     if (S.mode === 'Exclude' && !p.excludes.length) return false;
   }
-  if (S.q && !p._search.includes(S.q)) return false;
+  const q = qFilter();
+  if (q && !p._search.includes(q)) return false;
   return true;
 }
 /** rows visible inside an expanded card, honouring mode + policy filters */
@@ -643,7 +670,7 @@ function sortPolicies(arr){
     : (b.targets.length - a.targets.length) || a.name.localeCompare(b.name));
 }
 function filteredGroups(){
-  const q = S.q;
+  const q = qFilter();
   const out = groups.filter(g => {
     if (S.state === 'unassigned') return false;
     const rows = visibleGroupRows(g);
@@ -1277,18 +1304,31 @@ function updateResultLine(){
   const rl = document.getElementById('resultline');
   if (S.view === 'policies'){
     const n = filteredPolicies().length;
-    rl.textContent = fmt(n) + ' of ' + fmt(policies.length) + ' policies';
+    rl.textContent = fmt(n) + ' of ' + fmt(policies.length) + ' policies' +
+      hitNote(() => policies.filter(p => p._search.includes(S.q)).length, 'highlighted');
   } else if (S.view === 'groups' || S.view === 'matrix'){
     const gs = filteredGroups();
     const n = gs.reduce((a,g)=>a+visibleGroupRows(g).length, 0);
-    rl.textContent = fmt(gs.length) + ' of ' + fmt(groups.length) + ' groups · ' + fmt(n) + ' assignments shown';
+    rl.textContent = fmt(gs.length) + ' of ' + fmt(groups.length) + ' groups · ' + fmt(n) + ' assignments shown' +
+      hitNote(() => groups.filter(g => g._search.includes(S.q)).length, 'highlighted');
   } else rl.textContent = '';
+}
+/** with the Filter switch off nothing is hidden, so say how many rows the query actually hit */
+function hitNote(count, word){
+  return (S.q && !S.qfilter) ? ' · ' + fmt(count()) + ' ' + word : '';
 }
 
 /* filter controls */
 const qEl = document.getElementById('q');
 let qT;
 qEl.addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(() => { S.q = qEl.value.trim().toLowerCase(); render(); }, 130); });
+
+const filterBtn = document.getElementById('filterbtn');
+function setQFilter(on){
+  S.qfilter = on;
+  filterBtn.setAttribute('aria-checked', String(on));
+}
+filterBtn.onclick = () => { setQFilter(!S.qfilter); render(); };
 
 const fType = document.getElementById('f-type');
 const fPlat = document.getElementById('f-plat');
@@ -1322,6 +1362,7 @@ document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
 document.getElementById('f-sort').onchange = e => { S.sort = e.target.value; render(); };
 document.getElementById('reset').onclick = () => {
   S.q=''; S.type=''; S.plat=''; S.state=''; S.mode=''; S.sort='count';
+  setQFilter(true);
   qEl.value=''; fType.value=''; fPlat.value=''; document.getElementById('f-state').value='';
   document.getElementById('f-sort').value='count';
   document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode==='')));
