@@ -20,6 +20,8 @@
 
 # Logging layer - every Graph call in this file is recorded through it.
 . (Join-Path $PSScriptRoot 'Write-GraphLog.ps1')
+# Cache layer - CRUD plus load/save for the SID -> Entra identity map below.
+. (Join-Path $PSScriptRoot 'ObjectCache.ps1')
 # Shared cool-off gate. When Graph throttles one call, every later call through
 # Invoke-GraphRequest waits out the remaining window instead of each earning its own 429.
 # Script-scoped, so it lives as long as this file stays dot-sourced.
@@ -198,19 +200,18 @@ function Get-ResponseHeaderValue {
 
 function Import-EntraIdCache {
     <#
-        Loads the cache file into an in-memory hashtable, keyed by SID.
-        Returns an empty hashtable if the file doesn't exist yet (first run).
+        Loads the SID -> Entra identity cache into an in-memory hashtable, keyed by SID.
+        Each value carries id/upn/cachedAt.
+
+        A named wrapper over the generic Import-ObjectCache in ObjectCache.ps1, so this
+        script keeps talking about the Entra cache while there is only one implementation
+        of the file handling (missing file, empty file, corrupt JSON, atomic writes) to
+        get right. Pass -Path to point at a cache other than the default beside the script.
     #>
-    param($path = './cache.json')
+    param([string]$Path)
 
-    if (-not (Test-Path $Path)) { return @{} }
-
-    $raw = Get-Content -Path $Path -Raw | ConvertFrom-Json
-    $cache = @{}
-    foreach ($prop in $raw.PSObject.Properties) {
-        $cache[$prop.Name] = $prop.Value   # each value carries entraObjectId/samAccountName/resolvedAt
-    }
-   return $cache
+    if ($Path) { return Import-ObjectCache -Path $Path }
+    return Import-ObjectCache
 }
 
 function Resolve-EntraObjectId {
@@ -226,14 +227,15 @@ function Resolve-EntraObjectId {
         [switch]$getUpn = $false
     )
 
-    if ($Cache.ContainsKey($Sid)) {
+    if (Test-CacheEntry -Cache $Cache -Key $Sid) {
+      $entry = Get-CacheEntry -Cache $Cache -Key $Sid
       Write-GraphLog -Level Debug -Operation 'ResolveSid' -Message 'Cache hit, no Graph call' -Data @{
-        targetSid = $Sid; targetUserId = $Cache[$Sid].id
+        targetSid = $Sid; targetUserId = $entry.id
       }
       if($getUpn){
-        return $Cache[$Sid].upn
+        return $entry.upn
       }
-      return $Cache[$Sid].id
+      return $entry.id
     }
 
     # Miss - one Graph call for this SID only.
@@ -252,18 +254,22 @@ function Resolve-EntraObjectId {
                   -Operation 'ResolveSid' -LogContext @{ targetSid = $Sid }
     
     if ($result.value.Count -eq 1) {
-        $Cache[$Sid] = [PSCustomObject]@{
+        # Out-Null: Set-CacheEntry reports whether the key was new, and that boolean would
+        # otherwise fall out of this function alongside the id we actually return.
+        # cachedAt is stamped by the cache layer, so there is nothing to date by hand.
+        Set-CacheEntry -Cache $Cache -Key $Sid -Value @{
             id  = $result.value[0].id
             upn = $result.value[0].userPrincipalName
-            resolvedAt     = Get-Date -format 'yyyy-MM-dd'
-        }
+        } | Out-Null
+        $entry = Get-CacheEntry -Cache $Cache -Key $Sid
+
         Write-GraphLog -Level Information -Operation 'ResolveSid' -Message 'SID resolved to Entra user' -Data @{
-            targetSid = $Sid; targetUserId = $Cache[$Sid].id; upn = $Cache[$Sid].upn
+            targetSid = $Sid; targetUserId = $entry.id; upn = $entry.upn
         }
         if($getUpn){
-          return $Cache[$Sid].upn
+          return $entry.upn
         }
-        return $Cache[$Sid].id
+        return $entry.id
     }
 
     # Zero matches is the sync-delay case; more than one means duplicate SIDs in the
@@ -277,17 +283,18 @@ function Resolve-EntraObjectId {
 
 function Save-EntraIdCache {
     <#
-        Writes the cache back to disk. Writes to a temp file and renames over the
-        original so a crash mid-write can't leave a truncated/corrupt cache file.
+        Writes the cache back to disk (temp file + rename, so a crash mid-write cannot
+        leave a truncated cache). Counterpart to Import-EntraIdCache; see
+        Save-ObjectCache in ObjectCache.ps1 for the details, including its refusal to
+        overwrite a populated cache file with an empty cache.
     #>
     param(
         [Parameter(Mandatory)][hashtable]$Cache,
-        $Path = './cache.json'
+        [string]$Path
     )
 
-    $tempPath = "$Path.tmp"
-    $Cache | ConvertTo-Json -Depth 5 -Compress | Set-Content -Path $tempPath -Encoding UTF8 
-    Move-Item -Path $tempPath -Destination $Path -Force
+    if ($Path) { return Save-ObjectCache -Cache $Cache -Path $Path }
+    return Save-ObjectCache -Cache $Cache
 }
 
 function Set-IntunePrimaryUser {

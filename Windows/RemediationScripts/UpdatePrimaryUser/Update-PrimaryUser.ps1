@@ -46,29 +46,38 @@ for ($i = 0; $i -lt $devices.Count; $i++) {
 $updated = 0
 $skipped = 0
 
-foreach($device in $updates){
-	$deviceId = $device.deviceId
-	$bucket = $prefixIndex[$deviceId.Substring(0, 4).ToLowerInvariant()]
-	if ($bucket) {
-		$intuneDevice = $devices[$bucket.firstLoc..$bucket.lastLoc] |
-			Where-Object { $_.'Device Id' -eq $deviceId }
-		if($intuneDevice) {
-			# resolve the user SID, request back the users upn to match against the remediation output
-			$upn = Resolve-EntraObjectId -Sid $device.userSid -Cache $cache -getUpn
-			if ($null -notlike $upn){
-				if ($upn -ne $intuneDevice.'Primary user UPN'){
-					# update Intune device primary user id. $false back means Graph refused the
-					# user (no Intune licence / deleted) - already logged, so keep going.
-					$changed = Set-IntunePrimaryUser -DeviceId $device.deviceId `
-						-UserObjectId $cache[($device.userSid)].id `
-						-DeviceName $intuneDevice.'Device name' `
-						-PreviousUserUpn $intuneDevice.'Primary user UPN' `
-						-NewUserUpn $upn
-					if ($changed) { $updated++ } else { $skipped++ }
+# Resolutions made during the loop are worth keeping even if the run dies partway through:
+# each one is a Graph call the next run does not have to make. Hence try/finally rather
+# than a save tacked on at the end.
+try {
+	foreach($device in $updates){
+		$deviceId = $device.deviceId
+		$bucket = $prefixIndex[$deviceId.Substring(0, 4).ToLowerInvariant()]
+		if ($bucket) {
+			$intuneDevice = $devices[$bucket.firstLoc..$bucket.lastLoc] |
+				Where-Object { $_.'Device Id' -eq $deviceId }
+			if($intuneDevice) {
+				# resolve the user SID, request back the users upn to match against the remediation output
+				$upn = Resolve-EntraObjectId -Sid $device.userSid -Cache $cache -getUpn
+				if ($null -notlike $upn){
+					if ($upn -ne $intuneDevice.'Primary user UPN'){
+						# update Intune device primary user id. $false back means Graph refused the
+						# user (no Intune licence / deleted) - already logged, so keep going.
+						$changed = Set-IntunePrimaryUser -DeviceId $device.deviceId `
+							-UserObjectId $cache[($device.userSid)].id `
+							-DeviceName $intuneDevice.'Device name' `
+							-PreviousUserUpn $intuneDevice.'Primary user UPN' `
+							-NewUserUpn $upn
+						if ($changed) { $updated++ } else { $skipped++ }
+					}
 				}
 			}
 		}
 	}
+}
+finally {
+	# Out-Null: Save reports whether it wrote, which is in the log already.
+	Save-EntraIdCache -Cache $cache | Out-Null
 }
 
 Write-GraphLog -Level Information -Operation 'UpdatePrimaryUser' -Message "Run complete - $updated device(s) updated, $skipped skipped" -Data @{
