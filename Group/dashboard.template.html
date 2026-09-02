@@ -573,7 +573,8 @@ function buildModel(raw){
       assigned: targets.length > 0,
       broad: targets.some(t => !t.isGroup && !t.exclude),
       hasFilter: targets.some(t => t.filterId),
-      _search: ''
+      _search: '',
+      _name: ''
     };
   });
   policies.forEach(p => {
@@ -581,6 +582,7 @@ function buildModel(raw){
     if (inherited) p.targets.forEach(t => { if (t.source !== 'policySets') t.mixed = true; });
     p._search = [p.name, p.resourceType, p.id, p.platform, p.publisher, p.templateName,
                  ...p.targets.map(t => t.name)].join(' ').toLowerCase();
+    p._name = p.name.toLowerCase();
   });
   policyById = new Map(policies.map(p => [p.id, p]));
 
@@ -638,7 +640,7 @@ function policyPasses(p){
     if (S.mode === 'Exclude' && !p.excludes.length) return false;
   }
   const q = qFilter();
-  if (q && !p._search.includes(q)) return false;
+  if (q && !p._name.includes(q)) return false;   // Policies view searches the policy name only
   return true;
 }
 /** rows visible inside an expanded card, honouring mode + policy filters */
@@ -1274,6 +1276,8 @@ function setView(name){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   history.replaceState(null, '', '#' + name);
   document.querySelector('.filterbar').style.display = (name === 'overview') ? 'none' : '';
+  document.getElementById('q').placeholder =
+    (name === 'policies') ? 'Search policy names\u2026' : 'Search policies, groups, IDs\u2026';
 }
 function gotoGroup(key){
   openSet.add('g:' + key); setView('groups'); render();
@@ -1305,7 +1309,7 @@ function updateResultLine(){
   if (S.view === 'policies'){
     const n = filteredPolicies().length;
     rl.textContent = fmt(n) + ' of ' + fmt(policies.length) + ' policies' +
-      hitNote(() => policies.filter(p => p._search.includes(S.q)).length, 'highlighted');
+      hitNote(() => policies.filter(p => p._name.includes(S.q)).length, 'highlighted');
   } else if (S.view === 'groups' || S.view === 'matrix'){
     const gs = filteredGroups();
     const n = gs.reduce((a,g)=>a+visibleGroupRows(g).length, 0);
