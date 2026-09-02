@@ -235,11 +235,14 @@ details.row[open] > summary .caret{transform:rotate(90deg)}
 .aitem.i{border-left-color:var(--s1)}
 .aitem.e{border-left-color:var(--s2)}
 .aitem:hover{background:var(--surface-2)}
-.aitem .nm{flex:1 1 auto;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.aitem .nm .meta{color:var(--muted);font-size:11.5px;margin-left:8px}
+.aitem .nm{flex:1 1 auto;min-width:0;font-size:13px;display:flex;align-items:center;overflow:hidden;white-space:nowrap}
+.aitem .nm .meta{color:var(--muted);font-size:11.5px;margin-left:8px;flex:none}
+.aitem .nm .b{flex:none;margin-left:7px}
+.aitem .nm .copy{flex:none;margin-left:2px}
+.rowtitle .copy{margin-left:-4px}
 .aitem .tags{display:flex;gap:5px;flex:none;flex-wrap:wrap;justify-content:flex-end}
 .jump{background:none;border:0;color:var(--s1);cursor:pointer;padding:0;font:inherit;text-align:left;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;min-width:0;flex:0 1 auto}
 .jump:hover{text-decoration:underline}
 .empty{padding:34px 20px;text-align:center;color:var(--muted);font-size:13px}
 .empty b{display:block;color:var(--ink-2);font-size:14px;margin-bottom:4px}
@@ -1008,9 +1011,10 @@ function targetRow(t){
   const nm = el('div','nm');
   if (t.isGroup){
     const b = el('button','jump'); b.append(hl(t.name, S.q)); b.onclick = () => gotoGroup(t.key);
-    nm.append(b);
+    nm.append(b, copyBtn(t.name, 'Group name'));
   } else {
     const sp = el('span'); sp.style.fontWeight = '580'; sp.append(t.name); nm.append(sp);
+    nm.append(copyBtn(t.name, 'Group name'));
     nm.append(badge('warnb','built-in target'));
   }
   if (t.isGroup){ const m = el('span','meta mono', short(t.key)); nm.append(m); }
@@ -1024,7 +1028,7 @@ function policyRowInGroup(r){
   const it = el('div','aitem ' + (r.exclude ? 'e' : 'i'));
   const nm = el('div','nm');
   const b = el('button','jump'); b.append(hl(p.name, S.q)); b.onclick = () => gotoPolicy(p.id);
-  nm.append(b);
+  nm.append(b, copyBtn(p.name, 'Policy name'));
   it.append(nm);
   const tags = el('div','tags');
   tags.append(badge('type', p.resourceType));
@@ -1061,6 +1065,7 @@ function groupCard(g){
   const main = el('div','rowmain');
   const title = el('div','rowtitle');
   title.append(hl(g.name, S.q));
+  title.append(copyBtn(g.name, 'Group name'));
   if (g.kind === 'builtin') title.append(badge('warnb','built-in target'));
   main.append(title);
   const sub = el('div','rowsub');
@@ -1111,6 +1116,7 @@ function policyCard(p){
   const main = el('div','rowmain');
   const title = el('div','rowtitle');
   title.append(hl(p.name, S.q));
+  title.append(copyBtn(p.name, 'Policy name'));
   if (!p.assigned) title.append(badge('zero','unassigned'));
   if (p.broad) title.append(badge('warnb','broad'));
   main.append(title);
