@@ -127,6 +127,12 @@ select.f,.chipbtn{
   background:var(--surface);border:1px solid var(--border-2);border-radius:7px;padding:5px 8px;font-size:13px;cursor:pointer
 }
 .chipbtn.on{border-color:var(--s1);box-shadow:inset 0 0 0 1px var(--s1);color:var(--ink)}
+input.f{
+  background:var(--surface);border:1px solid var(--border-2);border-radius:7px;padding:5px 8px;font-size:13px;
+  color:var(--ink);width:170px
+}
+input.f::placeholder{color:var(--muted)}
+input.f:focus{outline:2px solid var(--s1);outline-offset:1px}
 .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:7px;overflow:hidden;background:var(--surface)}
 .seg button{background:none;border:0;padding:5px 10px;cursor:pointer;font-size:13px;color:var(--ink-2);border-right:1px solid var(--border)}
 .seg button:last-child{border-right:0}
@@ -468,6 +474,12 @@ body.nodata .tabs,body.nodata .filterbar,body.nodata .search,body.nodata .switch
       <button data-mode="Exclude" aria-pressed="false">Exclude</button>
     </div>
     <div class="fgroup">
+      <label for="f-exclude">Hide</label>
+      <input class="f" id="f-exclude" type="search" placeholder="name contains…" autocomplete="off"
+             aria-label="Hide by display name"
+             title="Hide policies (Policies view) or groups (Groups / Matrix views) whose display name contains any of these terms. Separate several terms with commas.">
+    </div>
+    <div class="fgroup">
       <label for="f-sort">Sort</label>
       <select class="f" id="f-sort">
         <option value="count">Most assignments</option>
@@ -616,7 +628,14 @@ function buildModel(raw){
 /* ==========================================================================
    2. Filter state
    ========================================================================== */
-const S = {view:'overview', q:'', qfilter:true, type:'', plat:'', state:'', mode:'', sort:'count'};
+const S = {view:'overview', q:'', qfilter:true, type:'', plat:'', state:'', mode:'', sort:'count', ex:[]};
+
+/** lower-case terms from the Exclude box; a display name containing any of them is hidden */
+function excluded(name){
+  if (!S.ex.length) return false;
+  const n = name.toLowerCase();
+  return S.ex.some(t => n.includes(t));
+}
 
 /** the query as far as *filtering* is concerned — '' when the Filter switch is off,
     so the lists stay whole and the query only drives highlighting */
@@ -639,6 +658,7 @@ function policyPasses(p){
     if (S.mode === 'Include' && !p.includes.length) return false;
     if (S.mode === 'Exclude' && !p.excludes.length) return false;
   }
+  if (excluded(p.name)) return false;            // Exclude box hides matching display names outright
   const q = qFilter();
   if (q && !p._name.includes(q)) return false;   // Policies view searches the policy name only
   return true;
@@ -675,6 +695,7 @@ function filteredGroups(){
   const q = qFilter();
   const out = groups.filter(g => {
     if (S.state === 'unassigned') return false;
+    if (excluded(g.name)) return false;
     const rows = visibleGroupRows(g);
     const nameHit = q && g.name.toLowerCase().includes(q);
     if (q && !nameHit && !rows.some(r => r.policy._search.includes(q))) return false;
@@ -1327,6 +1348,11 @@ const qEl = document.getElementById('q');
 let qT;
 qEl.addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(() => { S.q = qEl.value.trim().toLowerCase(); render(); }, 130); });
 
+const exEl = document.getElementById('f-exclude');
+let exT;
+const parseEx = v => v.toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+exEl.addEventListener('input', () => { clearTimeout(exT); exT = setTimeout(() => { S.ex = parseEx(exEl.value); render(); }, 130); });
+
 const filterBtn = document.getElementById('filterbtn');
 function setQFilter(on){
   S.qfilter = on;
@@ -1365,9 +1391,9 @@ document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
 });
 document.getElementById('f-sort').onchange = e => { S.sort = e.target.value; render(); };
 document.getElementById('reset').onclick = () => {
-  S.q=''; S.type=''; S.plat=''; S.state=''; S.mode=''; S.sort='count';
+  S.q=''; S.type=''; S.plat=''; S.state=''; S.mode=''; S.sort='count'; S.ex=[];
   setQFilter(true);
-  qEl.value=''; fType.value=''; fPlat.value=''; document.getElementById('f-state').value='';
+  qEl.value=''; exEl.value=''; fType.value=''; fPlat.value=''; document.getElementById('f-state').value='';
   document.getElementById('f-sort').value='count';
   document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode==='')));
   render();
@@ -1443,7 +1469,10 @@ function download(name, text, mime){
 document.addEventListener('keydown', e => {
   const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
   if (e.key === '/' && !typing){ e.preventDefault(); qEl.focus(); qEl.select(); return; }
-  if (e.key === 'Escape'){ if (qEl.value){ qEl.value=''; S.q=''; render(); } qEl.blur(); tipHide(); return; }
+  if (e.key === 'Escape'){
+    if (document.activeElement === exEl){ if (exEl.value){ exEl.value=''; S.ex=[]; render(); } exEl.blur(); tipHide(); return; }
+    if (qEl.value){ qEl.value=''; S.q=''; render(); } qEl.blur(); tipHide(); return;
+  }
   if (typing) return;
   const views = {'1':'overview','2':'groups','3':'policies','4':'matrix'};
   if (views[e.key]){ setView(views[e.key]); render(); window.scrollTo({top:0}); }
