@@ -602,7 +602,7 @@ function buildModel(raw){
   const groupMap = new Map();
   function ensureGroup(key, name, kind){
     let g = groupMap.get(key);
-    if (!g){ g = {key, name, kind, includes:[], excludes:[], _search:''}; groupMap.set(key, g); }
+    if (!g){ g = {key, name, kind, includes:[], excludes:[], _search:'', _name:''}; groupMap.set(key, g); }
     if (name && g.name !== name && kind !== 'builtin') g.name = name;
     return g;
   }
@@ -618,6 +618,7 @@ function buildModel(raw){
     g.total = g.includes.length + g.excludes.length;
     g._search = [g.name, g.key, ...g.includes.map(x=>x.policy.name), ...g.excludes.map(x=>x.policy.name)]
                 .join(' ').toLowerCase();
+    g._name = g.name.toLowerCase();
   });
 
   resourceTypes = [...new Set(policies.map(p=>p.resourceType))].sort();
@@ -696,9 +697,8 @@ function filteredGroups(){
   const out = groups.filter(g => {
     if (S.state === 'unassigned') return false;
     if (excluded(g.name)) return false;
+    if (q && !g._name.includes(q)) return false;   // Groups view searches the group display name only
     const rows = visibleGroupRows(g);
-    const nameHit = q && g.name.toLowerCase().includes(q);
-    if (q && !nameHit && !rows.some(r => r.policy._search.includes(q))) return false;
     if (!q && !rows.length && (S.type || S.plat || S.state || S.mode)) return false;
     return true;
   });
@@ -1298,7 +1298,7 @@ function setView(name){
   history.replaceState(null, '', '#' + name);
   document.querySelector('.filterbar').style.display = (name === 'overview') ? 'none' : '';
   document.getElementById('q').placeholder =
-    (name === 'policies') ? 'Search policy names\u2026' : 'Search policies, groups, IDs\u2026';
+    (name === 'policies') ? 'Search policy names\u2026' : 'Search group names\u2026';
 }
 function gotoGroup(key){
   openSet.add('g:' + key); setView('groups'); render();
@@ -1335,7 +1335,7 @@ function updateResultLine(){
     const gs = filteredGroups();
     const n = gs.reduce((a,g)=>a+visibleGroupRows(g).length, 0);
     rl.textContent = fmt(gs.length) + ' of ' + fmt(groups.length) + ' groups · ' + fmt(n) + ' assignments shown' +
-      hitNote(() => groups.filter(g => g._search.includes(S.q)).length, 'highlighted');
+      hitNote(() => groups.filter(g => g._name.includes(S.q)).length, 'highlighted');
   } else rl.textContent = '';
 }
 /** with the Filter switch off nothing is hidden, so say how many rows the query actually hit */
