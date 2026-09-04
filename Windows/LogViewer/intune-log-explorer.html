@@ -1,0 +1,2816 @@
+<meta charset="utf-8">
+<title>Intune Log Explorer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<style>
+/* tokens */
+:root{
+  color-scheme: light;
+  --plane:#f9f9f7; --surface:#fcfcfb; --surface-2:#f4f3f0;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --hair:rgba(11,11,11,.10);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --good-ink:#006300;
+  --shadow:0 1px 2px rgba(11,11,11,.06),0 8px 24px rgba(11,11,11,.07);
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
+    --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --hair:rgba(255,255,255,.10);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+    --good-ink:#0ca30c;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
+  --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --hair:rgba(255,255,255,.10);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+  --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --good-ink:#0ca30c;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--plane); color:var(--ink);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em}
+a{color:var(--s1)}
+button{font:inherit;color:inherit}
+code,kbd,pre{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace}
+
+/* shell */
+.wrap{max-width:1440px;margin:0 auto;padding:0 20px 64px}
+header.top{
+  position:sticky;top:0;z-index:40;background:var(--plane);
+  border-bottom:1px solid var(--hair);
+}
+.top-in{max-width:1440px;margin:0 auto;padding:14px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand h1{font-size:16px}
+.brand .sub{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spacer{flex:1 1 auto}
+.btn{
+  border:1px solid var(--hair);background:var(--surface);border-radius:8px;
+  padding:6px 11px;cursor:pointer;font-size:13px;line-height:1.4;
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+}
+.btn:hover{background:var(--surface-2)}
+.btn:active{transform:translateY(.5px)}
+.btn.primary{background:var(--s1);border-color:transparent;color:#fff}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn[disabled]{opacity:.45;cursor:default}
+.btn.sm{padding:3px 8px;font-size:12px}
+
+/* filter row */
+.filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 0 14px}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:5px 10px;cursor:pointer;font-size:12.5px;color:var(--ink-2)}
+.seg button+button{border-left:1px solid var(--hair)}
+.seg button[aria-pressed="true"]{background:var(--s1);color:#fff}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hair);
+  background:var(--surface);border-radius:999px;padding:4px 10px;font-size:12.5px;
+  cursor:pointer;color:var(--ink-2);user-select:none;
+}
+.chip input{margin:0;accent-color:var(--s1)}
+.search{
+  border:1px solid var(--hair);background:var(--surface);border-radius:8px;
+  padding:6px 10px;min-width:240px;flex:1 1 240px;max-width:420px;color:var(--ink);
+}
+.search::placeholder{color:var(--muted)}
+.flabel{font-size:12px;color:var(--muted);margin-right:-4px}
+
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--hair);margin-bottom:20px;overflow-x:auto}
+.tabs button{
+  border:0;background:transparent;padding:9px 14px;cursor:pointer;font-size:13.5px;
+  color:var(--ink-2);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;
+}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--s1);font-weight:550}
+.tabs .count{color:var(--muted);font-size:11.5px;margin-left:5px;font-variant-numeric:tabular-nums}
+
+/* cards */
+.card{
+  background:var(--surface);border:1px solid var(--hair);border-radius:var(--r);
+  padding:18px;box-shadow:var(--shadow);
+}
+.card h2{font-size:13px;color:var(--ink-2);font-weight:600;letter-spacing:.01em}
+.card .hint{font-size:12px;color:var(--muted);margin-top:3px}
+.grid{display:grid;gap:16px}
+/* grid/flex children default to min-width:auto, so one wide table (an ADMX
+   payload, a long CSP URI) stretches the whole column and scrolls the page.
+   Let children shrink and keep the overflow inside .tw where it belongs. */
+.grid>*,.tiles>*,.hero-row>*{min-width:0}
+.card{min-width:0;max-width:100%}
+.tw{max-width:100%}
+.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:980px){.cols-2{grid-template-columns:1fr}}
+
+/* hero + tiles */
+.hero-row{display:grid;grid-template-columns:minmax(230px,1fr) 2.1fr;gap:16px}
+@media (max-width:980px){.hero-row{grid-template-columns:1fr}}
+.hero .label{font-size:12.5px;color:var(--ink-2)}
+.hero .value{font-size:54px;line-height:1.05;font-weight:600;margin:6px 0 2px;letter-spacing:-.03em}
+.hero .meta{font-size:12.5px;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+@media (max-width:980px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile .label{font-size:12px;color:var(--ink-2)}
+.tile .value{font-size:28px;font-weight:600;line-height:1.15;margin-top:4px;letter-spacing:-.02em}
+.tile .meta{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* status */
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 8px}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;white-space:nowrap}
+.st-good{color:var(--good-ink)} .st-good .dot{background:var(--good)}
+.st-warn{color:var(--ink-2)}    .st-warn .dot{background:var(--warn)}
+.st-serious{color:var(--ink-2)} .st-serious .dot{background:var(--serious)}
+.st-crit{color:var(--crit)}     .st-crit .dot{background:var(--crit)}
+.st-info{color:var(--ink-2)}    .st-info .dot{background:var(--s1)}
+.st-muted{color:var(--muted)}   .st-muted .dot{background:var(--muted)}
+
+/* tables */
+.tw{overflow-x:auto;margin:0 -18px -18px;padding:0 18px 4px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{
+  text-align:left;font-weight:600;color:var(--muted);font-size:11.5px;
+  text-transform:uppercase;letter-spacing:.045em;padding:8px 10px;
+  border-bottom:1px solid var(--grid);white-space:nowrap;background:var(--surface);
+}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--ink-2)}
+th .ar{opacity:.55;font-size:9px}
+td{padding:8px 10px;border-bottom:1px solid var(--grid);vertical-align:top}
+tbody tr:hover td{background:var(--surface-2)}
+tbody tr.clickable{cursor:pointer}
+.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:12px}
+.trunc{max-width:clamp(160px,34vw,540px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trunc.wide{max-width:clamp(200px,46vw,780px)}
+.trunc.narrow{max-width:clamp(110px,15vw,240px)}
+.drawer .trunc{max-width:clamp(160px,42vw,560px)}
+.drawer .trunc.wide{max-width:clamp(160px,42vw,560px)}
+.drawer .tw{margin:0;padding:0 0 4px}
+.nowrap{white-space:nowrap}
+.dim{color:var(--muted)}
+.empty{padding:36px 18px;text-align:center;color:var(--muted);font-size:13px}
+.tag{
+  display:inline-block;border:1px solid var(--hair);border-radius:5px;
+  padding:1px 6px;font-size:11px;color:var(--ink-2);background:var(--surface-2);white-space:nowrap;
+}
+
+/* charts */
+.chart-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--ink-2)}
+.legend .key{display:inline-flex;align-items:center;gap:6px}
+.legend .sw{width:10px;height:10px;border-radius:2px}
+svg{display:block;overflow:visible}
+.tip{
+  position:fixed;z-index:80;pointer-events:none;background:var(--surface);
+  border:1px solid var(--hair);border-radius:8px;box-shadow:var(--shadow);
+  padding:9px 11px;font-size:12px;min-width:150px;opacity:0;transition:opacity .1s;
+}
+.tip .t-title{color:var(--muted);font-size:11px;margin-bottom:6px}
+.tip .t-row{display:flex;align-items:center;gap:14px;justify-content:space-between}
+.tip .t-row+.t-row{margin-top:3px}
+.tip .t-k{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2)}
+.tip .t-line{width:11px;height:2px;border-radius:1px;flex:0 0 11px}
+.tip .t-v{font-weight:600;font-variant-numeric:tabular-nums}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(11,11,11,.34);z-index:90;opacity:0;transition:opacity .16s}
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;width:min(780px,94vw);background:var(--surface);
+  border-left:1px solid var(--hair);z-index:91;display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .18s ease;box-shadow:-8px 0 30px rgba(11,11,11,.12);
+}
+body.drawer-open .scrim{opacity:1}
+body.drawer-open .drawer{transform:none}
+.drawer-head{padding:16px 20px;border-bottom:1px solid var(--hair);display:flex;gap:12px;align-items:flex-start}
+.drawer-head h2{font-size:15px;line-height:1.35;word-break:break-word}
+.drawer-head .sub{font-size:12px;color:var(--muted);margin-top:3px}
+.drawer-body{overflow:auto;padding:18px 20px 40px;flex:1}
+.dl{display:grid;grid-template-columns:158px 1fr;gap:6px 14px;font-size:13px}
+.dl dt{color:var(--muted);font-size:12px}
+.dl dd{margin:0;word-break:break-word}
+.sec{margin-top:22px}
+.sec>h3{font-size:11.5px;text-transform:uppercase;letter-spacing:.045em;color:var(--muted);margin-bottom:8px}
+pre.msg{
+  background:var(--surface-2);border:1px solid var(--hair);border-radius:8px;padding:11px 12px;
+  white-space:pre-wrap;word-break:break-word;font-size:12px;margin:0;line-height:1.55;
+}
+
+/* setup */
+.setup{max-width:880px;margin:40px auto}
+.setup h2{font-size:20px;margin-bottom:6px}
+.setup p.lede{color:var(--ink-2);margin:0 0 26px;font-size:14px;line-height:1.6}
+.step{display:grid;grid-template-columns:28px 1fr;gap:14px;margin-bottom:22px}
+.step .n{
+  width:26px;height:26px;border-radius:50%;background:var(--s1);color:#fff;
+  display:grid;place-items:center;font-size:12.5px;font-weight:600;
+}
+.step h3{font-size:14px;margin-bottom:5px}
+.step p{margin:0 0 10px;color:var(--ink-2);font-size:13px;line-height:1.6}
+.codebox{border:1px solid var(--hair);border-radius:8px;background:var(--surface-2);overflow:hidden}
+.codebox pre{margin:0;padding:12px 13px;overflow:auto;max-height:280px;font-size:11.5px;line-height:1.55;white-space:pre}
+.codebox .cb-bar{
+  display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;
+  border-bottom:1px solid var(--hair);font-size:11.5px;color:var(--muted);background:var(--surface);
+}
+.drop{
+  border:1.5px dashed var(--axis);border-radius:var(--r);padding:26px;text-align:center;
+  color:var(--ink-2);background:var(--surface);transition:background .12s,border-color .12s;
+}
+.drop.over{border-color:var(--s1);background:var(--surface-2)}
+.drop .big{font-size:14px;margin-bottom:4px}
+.drop .small{font-size:12px;color:var(--muted)}
+.note{border-left:2px solid var(--warn);padding:2px 0 2px 12px;color:var(--ink-2);font-size:12.5px;line-height:1.6;margin:14px 0 0}
+.note.err{border-left-color:var(--crit);color:var(--crit)}
+.hidden{display:none!important}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1>Intune Log Explorer</h1>
+      <span class="sub" id="brand-sub">MDM diagnostic event channels</span>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn hidden" id="btn-summary" title="Copy a plain-text summary for a ticket">Copy summary</button>
+    <button class="btn hidden" id="btn-reload">Load data…</button>
+    <button class="btn hidden" id="btn-clear" title="Drop the loaded logs from this page">Clear data</button>
+    <button class="btn" id="btn-theme" title="Toggle light / dark">Theme</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ── landing / setup ─────────────────────────────────────── -->
+  <section class="setup" id="setup">
+    <h2>Read the Intune client logs on this device</h2>
+    <p class="lede">
+      This page works straight off disk — no web server, no install, no internet. A browser
+      can’t open <span class="mono">C:\Windows\System32\winevt\Logs\*.evtx</span> by itself
+      (those files are ACL-restricted and JS has no filesystem access), so step&nbsp;1 exports
+      the three MDM channels to a small JSON file that this page then reads.
+      <strong>No administrator rights required.</strong>
+    </p>
+
+    <div class="step">
+      <div class="n">1</div>
+      <div>
+        <h3>Export the event channels</h3>
+        <p>
+          Copy this into Windows PowerShell and press Enter. It reads
+          <span class="mono">…Diagnostics-Provider/Admin</span>, <span class="mono">/Operational</span>
+          and <span class="mono">/Sync</span> and writes <span class="mono">intune-logs.json</span>
+          to your Desktop. Edit the variables at the top to change the window or output folder.
+        </p>
+        <div class="codebox">
+          <div class="cb-bar">
+            <span class="mono">Collect-IntuneLogs.ps1</span>
+            <span class="spacer" style="flex:1"></span>
+            <button class="btn sm" id="btn-copy-ps">Copy</button>
+            <button class="btn sm" id="btn-save-ps">Save as .ps1</button>
+          </div>
+          <pre id="ps-view"></pre>
+        </div>
+        <p class="note">
+          Reading logs from another machine? Have someone run
+          <span class="mono">wevtutil epl "&lt;channel&gt;" C:\Temp\&lt;name&gt;.evtx</span> there
+          (also non-admin), copy the <span class="mono">.evtx</span> files over, then set
+          <span class="mono">$FromEvtxDir</span> in the script to that folder.
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">2</div>
+      <div>
+        <h3>Load it here</h3>
+        <p>Drop the file below, or click to browse. Nothing leaves this machine — the file is parsed in the page.</p>
+        <div class="drop" id="drop">
+          <div class="big">Drop <span class="mono">intune-logs.json</span> here</div>
+          <div class="small">or click to choose a file · <span class="mono">.json</span> / <span class="mono">.js</span></div>
+          <input type="file" id="file" accept=".json,.js,application/json,text/javascript" class="hidden">
+        </div>
+        <p class="note" id="load-note" style="display:none"></p>
+        <p class="note" style="border-left-color:var(--s1)">
+          Tip: put <span class="mono">intune-logs.js</span> in the same folder as this HTML file and it
+          loads automatically every time you open the page.
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">3</div>
+      <div>
+        <h3>What you get</h3>
+        <p>
+          A rollup of sync health and recent activity, every OMA-DM session with the settings it
+          carried, an inventory of applied settings and CSP nodes, and a problem view that separates
+          hard failures from conflicts and policy drift. Every summary drills through to the
+          underlying events.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── app ─────────────────────────────────────────────────── -->
+  <main id="app" class="hidden">
+    <div class="filters" id="filters">
+      <span class="flabel">Range</span>
+      <div class="seg" id="seg-range" role="group" aria-label="Time range"></div>
+      <span class="flabel">Channel</span>
+      <span id="chan-chips"></span>
+      <span class="flabel">Level</span>
+      <span id="level-chips"></span>
+      <input class="search" id="q" type="search" placeholder="Search message, policy, CSP URI, event ID…" aria-label="Search events">
+      <button class="btn sm" id="btn-reset">Reset</button>
+      <span class="flabel" id="filter-count"></span>
+    </div>
+
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<div class="scrim hidden" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="drawer-head">
+    <div style="min-width:0;flex:1">
+      <h2 id="drawer-title">Detail</h2>
+      <div class="sub" id="drawer-sub"></div>
+    </div>
+    <button class="btn sm" id="drawer-close" aria-label="Close">Close</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+<div class="tip" id="tip" role="status" aria-live="polite"></div>
+
+<script type="text/plain" id="collector-src">
+# =====================================================================
+#  Intune Log Explorer - collector
+#  Exports the Intune / MDM diagnostic event channels to intune-logs.json
+#  so the Intune Log Explorer page can read them.
+#  No administrator rights required.
+#
+#  Paste the whole block into Windows PowerShell, or save it as
+#  Collect-IntuneLogs.ps1 and run it.
+# =====================================================================
+
+$Days              = 30                          # how far back to collect
+$OutDir            = "$env:USERPROFILE\Desktop"  # where to write the output
+$MaxEventsPerChan  = 20000                       # safety cap, per channel
+$FromEvtxDir       = ""                          # optional: folder of exported .evtx copies
+$IncludeEnrollment = $false                      # also collect Enrollment + Autopilot channels
+$IncludeState      = $true                       # also read the endpoint's configuration state
+                                                 #   from the registry (see the section below)
+
+$base  = "Microsoft-Windows-DeviceManagement-Enterprise-Diagnostics-Provider"
+$chans = @("Admin","Operational","Sync")
+if ($IncludeEnrollment) { $chans += @("Enrollment","Autopilot") }
+$since = (Get-Date).AddDays(-[Math]::Abs($Days))
+
+$events   = New-Object System.Collections.Generic.List[object]
+$chanInfo = New-Object System.Collections.Generic.List[object]
+
+Write-Host "Collecting since $since ..." -ForegroundColor Cyan
+
+foreach ($c in $chans) {
+    $filter = @{ StartTime = $since }
+    if ($FromEvtxDir) { $filter["Path"] = Join-Path $FromEvtxDir ($base + "%4" + $c + ".evtx") }
+    else              { $filter["LogName"] = "$base/$c" }
+
+    $recs = @()
+    try {
+        $recs = @(Get-WinEvent -FilterHashtable $filter -MaxEvents $MaxEventsPerChan -ErrorAction Stop)
+    } catch {
+        $em = "$($_.Exception.Message)"
+        if ($em -notmatch "No events were found") { Write-Warning "$c : $em" }
+    }
+
+    $n = 0
+    foreach ($e in $recs) {
+        $n++
+        if ($n % 250 -eq 0) {
+            Write-Progress -Activity "Reading $c" -Status "$n of $($recs.Count)" `
+                           -PercentComplete (100 * $n / [Math]::Max($recs.Count,1))
+        }
+
+        $d = New-Object System.Collections.Specialized.OrderedDictionary
+        try {
+            $x = [xml]$e.ToXml()
+            $container = $null
+            if ($x.Event.EventData) { $container = $x.Event.EventData } elseif ($x.Event.UserData) { $container = $x.Event.UserData }
+            if ($container) {
+                $idx = 0
+                foreach ($node in $container.ChildNodes) {
+                    if ($node.NodeType -ne "Element") { continue }
+                    $idx++
+                    $nm = $null
+                    if ($node.HasAttribute("Name")) { $nm = $node.GetAttribute("Name") }
+                    if (-not $nm) { $nm = "Data$idx" }
+                    if (-not $d.Contains($nm)) { $d.Add($nm, [string]$node.InnerText) }
+                }
+            }
+        } catch { }
+
+        $msg = $e.Message
+        if (-not $msg) { $msg = "(no rendered message available for event $($e.Id))" }
+
+        $events.Add([pscustomobject][ordered]@{
+            c = $c
+            i = [int]$e.Id
+            l = [int]$e.Level
+            t = $e.TimeCreated.ToUniversalTime().ToString("o")
+            r = [int64]$e.RecordId
+            p = [int]$e.ProcessId
+            m = ($msg -replace "`r`n", "`n").Trim()
+            d = $d
+        })
+    }
+    Write-Progress -Activity "Reading $c" -Completed
+
+    $oldest = $null ; $newest = $null
+    if ($recs.Count -gt 0) {
+        $oldest = $recs[$recs.Count - 1].TimeCreated.ToUniversalTime().ToString("o")
+        $newest = $recs[0].TimeCreated.ToUniversalTime().ToString("o")
+    }
+    $chanInfo.Add([pscustomobject][ordered]@{ n = $c ; count = $recs.Count ; oldest = $oldest ; newest = $newest })
+    Write-Host ("  {0,-12} {1,6} events" -f $c, $recs.Count)
+}
+
+# =====================================================================
+#  Endpoint configuration state, straight from the registry.
+#  None of this needs administrator rights.
+#
+#    Enrollments      who manages this device, and as whom
+#    current\<scope>  the EFFECTIVE value of every managed policy
+#    providers\<id>   what each enrollment asked for - where two of them
+#                     disagree, that is a policy conflict, and comparing
+#                     against "current" shows which one won
+#    NodeCache        every CSP node the server has pushed, with the value
+#                     it expects - the desired-state inventory
+# =====================================================================
+$enrollments  = New-Object System.Collections.Generic.List[object]
+$currentVals  = New-Object System.Collections.Generic.List[object]
+$providerVals = New-Object System.Collections.Generic.List[object]
+$nodeCache    = New-Object System.Collections.Generic.List[object]
+
+function Get-RegVals([string]$path) {
+    $o = [ordered]@{}
+    try {
+        $k = Get-Item -LiteralPath $path -ErrorAction Stop
+        foreach ($n in $k.GetValueNames()) { if ($n -ne "") { $o[$n] = [string]$k.GetValue($n) } }
+    } catch { }
+    return $o
+}
+
+if ($IncludeState) {
+    Write-Host "Reading endpoint configuration state ..." -ForegroundColor Cyan
+
+    Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Enrollments" -ErrorAction SilentlyContinue |
+      Where-Object { $_.PSChildName -match "^[0-9A-Fa-f]{8}-" } | ForEach-Object {
+        $v = Get-RegVals $_.PSPath
+        $enrollments.Add([pscustomobject][ordered]@{
+            id        = $_.PSChildName.ToUpper()
+            provider  = $v["ProviderID"]
+            upn       = $v["UPN"]
+            state     = $v["EnrollmentState"]
+            type      = $v["EnrollmentType"]
+            discovery = $v["DiscoveryServiceFullURL"]
+            poll      = (Get-RegVals (Join-Path $_.PSPath "Poll"))
+        })
+    }
+
+    Get-ChildItem "HKLM:\SOFTWARE\Microsoft\PolicyManager\current" -ErrorAction SilentlyContinue | ForEach-Object {
+        $scope = $_.PSChildName
+        Get-ChildItem $_.PSPath -ErrorAction SilentlyContinue | ForEach-Object {
+            $area = $_.PSChildName
+            $vals = Get-RegVals $_.PSPath
+            foreach ($n in $vals.Keys) {
+                $currentVals.Add([pscustomobject][ordered]@{ scope = $scope; area = $area; name = $n; value = $vals[$n] })
+            }
+        }
+    }
+
+    Get-ChildItem "HKLM:\SOFTWARE\Microsoft\PolicyManager\providers" -ErrorAction SilentlyContinue | ForEach-Object {
+        $enr = $_.PSChildName.ToUpper()
+        Get-ChildItem (Join-Path $_.PSPath "default") -ErrorAction SilentlyContinue | ForEach-Object {
+            $scope = $_.PSChildName
+            Get-ChildItem $_.PSPath -ErrorAction SilentlyContinue | ForEach-Object {
+                $area = $_.PSChildName
+                $vals = Get-RegVals $_.PSPath
+                foreach ($n in $vals.Keys) {
+                    $providerVals.Add([pscustomobject][ordered]@{ enrollment = $enr; scope = $scope; area = $area; name = $n; value = $vals[$n] })
+                }
+            }
+        }
+    }
+
+    Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Provisioning\NodeCache\CSP" -ErrorAction SilentlyContinue | ForEach-Object {
+        $scope = $_.PSChildName
+        Get-ChildItem $_.PSPath -ErrorAction SilentlyContinue | ForEach-Object {
+            $prov = $_.PSChildName
+            Get-ChildItem (Join-Path $_.PSPath "Nodes") -ErrorAction SilentlyContinue | ForEach-Object {
+                $v  = Get-RegVals $_.PSPath
+                $ev = [string]$v["ExpectedValue"]
+                $tr = $false
+                if ($ev.Length -gt 512) { $ev = $ev.Substring(0, 512); $tr = $true }   # certs and blobs
+                $nodeCache.Add([pscustomobject][ordered]@{
+                    scope = $scope; provider = $prov; id = $_.PSChildName
+                    uri = $v["NodeUri"]; expected = $ev; truncated = $tr
+                })
+            }
+        }
+    }
+
+    Write-Host ("  enrollments {0} | effective values {1} | per-provider values {2} | cached CSP nodes {3}" -f `
+        $enrollments.Count, $currentVals.Count, $providerVals.Count, $nodeCache.Count)
+}
+
+$os = $null
+try { $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop } catch { }
+
+$payload = [ordered]@{
+    schema    = 1
+    tool      = "intune-log-explorer"
+    collected = (Get-Date).ToUniversalTime().ToString("o")
+    window    = [ordered]@{
+        days   = $Days
+        since  = $since.ToUniversalTime().ToString("o")
+        source = $(if ($FromEvtxDir) { "evtx: $FromEvtxDir" } else { "live event log" })
+    }
+    machine   = [ordered]@{
+        computer = $env:COMPUTERNAME
+        user     = $env:USERNAME
+        os       = $(if ($os) { $os.Caption } else { "" })
+        build    = [string][Environment]::OSVersion.Version
+    }
+    channels  = $chanInfo
+    events    = $events
+    state     = [ordered]@{
+        enrollments = $enrollments
+        current     = $currentVals
+        providers   = $providerVals
+        nodes       = $nodeCache
+    }
+}
+
+if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
+
+Write-Host "Serializing ..." -ForegroundColor Cyan
+$json     = $payload | ConvertTo-Json -Depth 8 -Compress
+$enc      = New-Object System.Text.UTF8Encoding($false)
+$jsonPath = Join-Path $OutDir "intune-logs.json"
+$jsPath   = Join-Path $OutDir "intune-logs.js"
+[IO.File]::WriteAllText($jsonPath, $json, $enc)
+[IO.File]::WriteAllText($jsPath, "window.INTUNE_LOG_DATA=" + $json + ";", $enc)
+
+Write-Host ""
+Write-Host ("Collected {0} events from {1} channel(s)." -f $events.Count, $chanInfo.Count) -ForegroundColor Green
+Write-Host ("  {0}" -f $jsonPath)
+Write-Host ("  {0}    <- drop next to the HTML file to auto-load" -f $jsPath)
+</script>
+
+<script>
+(function () {
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════
+   DOM helpers.  Everything that touches log text goes through
+   textContent — event messages are untrusted input.
+   ═══════════════════════════════════════════════════════════════ */
+var $ = function (s, r) { return (r || document).querySelector(s); };
+function h(tag, props, kids) {
+  var n = document.createElement(tag), k, v;
+  if (props) for (k in props) {
+    v = props[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k === 'html') n.innerHTML = v;
+    else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), v);
+    else if (k === 'style' && typeof v === 'object') { for (var p in v) n.style[p] = v[p]; }
+    else n.setAttribute(k, v);
+  }
+  var list = kids == null ? [] : (Array.isArray(kids) ? kids : [kids]);
+  list.forEach(function (c) {
+    if (c == null || c === false) return;
+    n.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c)));
+  });
+  return n;
+}
+function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); return n; }
+var SVGNS = 'http://www.w3.org/2000/svg';
+function s(tag, props, kids) {
+  var n = document.createElementNS(SVGNS, tag), k;
+  if (props) for (k in props) {
+    if (props[k] == null || props[k] === false) continue;
+    if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), props[k]);
+    else n.setAttribute(k, props[k]);
+  }
+  var list = kids == null ? [] : (Array.isArray(kids) ? kids : [kids]);
+  list.forEach(function (c) { n.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c))); });
+  return n;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Formatting
+   ═══════════════════════════════════════════════════════════════ */
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+function fmtDT(ms) {
+  var d = new Date(ms);
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+         ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+function fmtShort(ms) {
+  var d = new Date(ms);
+  return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+function fmtDay(ms) { var d = new Date(ms); return pad(d.getMonth() + 1) + '/' + pad(d.getDate()); }
+function fmtDur(ms) {
+  if (ms == null) return '—';
+  if (ms < 1000) return ms + ' ms';
+  if (ms < 60000) return (ms / 1000).toFixed(1) + ' s';
+  var m = Math.floor(ms / 60000), sec = Math.round((ms % 60000) / 1000);
+  return m + 'm ' + sec + 's';
+}
+function fmtAgo(ms, now) {
+  var d = Math.max(0, (now || Date.now()) - ms), mn = Math.round(d / 60000);
+  if (mn < 1) return 'just now';
+  if (mn < 60) return mn + ' min ago';
+  var hr = Math.round(mn / 60);
+  if (hr < 48) return hr + ' h ago';
+  return Math.round(hr / 24) + ' d ago';
+}
+function num(n) { return (n == null ? '—' : String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')); }
+function pct(a, b) { return b ? Math.round((a / b) * 1000) / 10 : 0; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Result / HRESULT decoding
+   ═══════════════════════════════════════════════════════════════ */
+var HTTP_STATUS = {
+  400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found',
+  407: 'Proxy Authentication Required', 408: 'Request Timeout', 413: 'Payload Too Large',
+  429: 'Too Many Requests', 500: 'Internal Server Error', 502: 'Bad Gateway',
+  503: 'Service Unavailable', 504: 'Gateway Timeout'
+};
+var HR_KNOWN = {
+  '0x00000000': 'Success.',
+  '0x80004005': 'Unspecified failure (E_FAIL).',
+  '0x80070002': 'The system cannot find the file specified.',
+  '0x80070005': 'Access is denied (E_ACCESSDENIED).',
+  '0x8007000d': 'The data is invalid (E_INVALIDDATA).',
+  '0x80070057': 'The parameter is incorrect (E_INVALIDARG).'
+};
+/* Hints are interpretation, not decoded meaning — labelled as such in the UI. */
+var HR_HINT = {
+  '0x80070057': 'On a CSP command this usually means the value or the node path was rejected — a malformed rule, an unsupported field, or a value outside the allowed range.',
+  '0x86000011': 'The most common Intune CSP rejection. Typically the node is not supported on this Windows edition/SKU, the value is out of range, or another authority is already writing the same setting.',
+  '0x86000002': 'The CSP node named in the request was not found on this device.',
+  '0x86000022': 'The command needed a user context that was not available at the time (no interactive user, or the wrong user targeted).',
+  '0x82aa0008': 'OMA-DM/SyncML status returned for the node — the command did not complete for that node in this session.',
+  '0x801901ad': 'HTTP 429 from the service: the client was throttled and will back off and retry. Occasional occurrences are normal; sustained ones delay policy delivery.'
+};
+function normHex(c) {
+  if (!c) return null;
+  var t = String(c).trim().replace(/^0x/i, '').toLowerCase();
+  if (!/^[0-9a-f]{1,16}$/.test(t)) return null;
+  while (t.length < 8) t = '0' + t;
+  return '0x' + t;
+}
+function decodeHr(code) {
+  var c = normHex(code);
+  if (!c) return null;
+  var n = parseInt(c.slice(-8), 16) >>> 0, hi = (n >>> 16) & 0xffff, lo = n & 0xffff;
+  var o = { code: c, facility: null, text: HR_KNOWN[c] || null, hint: HR_HINT[c] || null, ok: n === 0 };
+  if (hi === 0x8019) {
+    o.facility = 'HTTP / WinHTTP';
+    if (!o.text) o.text = 'HTTP ' + lo + (HTTP_STATUS[lo] ? ' — ' + HTTP_STATUS[lo] : '') + '.';
+    if (!o.hint) o.hint = 'The MDM client could not complete its request to the Intune service.';
+  }
+  else if (hi === 0x8600) o.facility = 'MDM ConfigurationManager (CSP)';
+  else if (hi === 0x82aa) o.facility = 'OMA-DM / SyncML';
+  else if (hi === 0x82ac) o.facility = 'MDM client / declared configuration';
+  else if (hi === 0x8018) o.facility = 'Windows Update';
+  else if (hi === 0x8009) o.facility = 'Cryptography';
+  else if (hi === 0x8007) o.facility = 'Win32';
+  else if (n === 0) o.facility = 'Success';
+  return o;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Message field extraction
+   ═══════════════════════════════════════════════════════════════ */
+var GUID_RE = /[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}/;
+function grab(m, re) { var x = m.match(re); return x ? x[1].trim() : null; }
+
+function fieldsOf(m, d, lvl) {
+  var f = {};
+  f.policy   = grab(m, /Policy:\s*\(([^)]*)\)/i);
+  f.area     = grab(m, /Area:\s*\(([^)]*)\)/i);
+  f.csp      = grab(m, /CSP URI:\s*\(([^)]*)\)/i);
+  f.provider = grab(m, /(?:Provider Name|CSP Name):\s*\(([^)]*)\)/i);
+  f.cmdType  = grab(m, /Command Type:\s*\(([^)]*)\)/i);
+  f.enrollType = grab(m, /Enrollment Type:\s*\(([^)]*)\)/i);
+  f.user     = grab(m, /Current User:\s*\(([^)]*)\)/i);
+  f.appName  = grab(m, /app name\s*\(([^)]*)\)/i);
+  f.docId    = grab(m, /Document Id:\s*\(([^)]*)\)/i);
+
+  /* value written by a policy set */
+  var v = grab(m, /\bInt:\s*\(([^)]*)\)/i);
+  if (v == null) v = grab(m, /\bString:\s*\(([^)]*)\)/i);
+  f.value = v;
+
+  /* enrollment / account GUID */
+  var em = m.match(/(?:EnrollmentID requesting (?:set|merge)|Enrollment\s?ID|EnrollmentId|Configurat\w*on Source ID|Account\s?ID|AccountID|for EnrollmentID)\s*:?\s*\(?\s*([0-9A-Fa-f-]{36})\s*\)?/);
+  f.enrollment = em ? em[1].toUpperCase() : null;
+  f.merge = /EnrollmentID requesting merge/i.test(m);
+
+  /* result text + code */
+  var rtext = grab(m, /Result\s*:?\s*\(([^)]*)\)/i);
+  if (!rtext) rtext = grab(m, /\bstatus:\s*\(([^)]*)\)/i);   /* e.g. "session ended with status: (…)" */
+  var code = null;
+  if (d) { code = d.HRESULT || d.Result || null; }
+  if (!code) {
+    var cm = m.match(/Result\s*:?\s*\((0x[0-9A-Fa-f]+)\)/i) ||
+             m.match(/Result\s*:?\s*\([^)]*?(0x[0-9A-Fa-f]{1,8})[^)]*\)/i) ||
+             m.match(/(?:Error code|HRESULT|error)\s*:?\s*\(?(0x[0-9A-Fa-f]{1,8})\)?/i);
+    if (cm) code = cm[1];
+  }
+  if (!code && rtext && /completed successfully/i.test(rtext)) code = '0x0';
+  f.resultText = rtext;
+  f.resultCode = normHex(code);
+
+  /* desired vs actual drift */
+  var dm = m.match(/Found\s+(0x[0-9A-Fa-f]+)\s+Wanted\s+(0x[0-9A-Fa-f]+)/i);
+  if (dm) { f.found = dm[1]; f.wanted = dm[2]; }
+
+  /* OMA-DM session id */
+  var sid = null;
+  if (d && d.UInt1 && /Session/i.test(m)) sid = parseInt(d.UInt1, 10);
+  if (!sid) {
+    var sm = m.match(/SessionID:\s*\((0x[0-9A-Fa-f]+)\)/i);
+    if (sm) sid = parseInt(sm[1], 16);
+    else { sm = m.match(/Session ID\((\d+)\)/i); if (sm) sid = parseInt(sm[1], 10); }
+  }
+  f.sessionId = (sid && sid > 0) ? sid : null;
+
+  /* Some events carry the failure code only in EventData (e.g. 404 renders
+     "Result: (The parameter is incorrect.)" while HexInt1 holds 0x80070057).
+     Only trusted on error/warning events — plenty of informational events put
+     unrelated large hex values (WNF state names, masks) in the same fields. */
+  if (!f.resultCode && d && (lvl === 1 || lvl === 2 || lvl === 3)) {
+    var keys = Object.keys(d), i, c2;
+    for (i = 0; i < keys.length; i++) {
+      if (/^(HRESULT|Result|ErrorCode|Error|Status)$/i.test(keys[i])) {
+        c2 = normHex(d[keys[i]]);
+        if (c2) { f.resultCode = c2; break; }
+      }
+    }
+    if (!f.resultCode) {
+      var best = null;
+      keys.forEach(function (k) {
+        if (!/^HexInt\d*$/i.test(k)) return;
+        var c3 = normHex(d[k]);
+        if (c3 && (parseInt(c3.slice(-8), 16) >>> 0) >= 0x80000000) best = c3;
+      });
+      if (best) f.resultCode = best;
+    }
+  }
+  return f;
+}
+function topCode(codes) {
+  var best = null, bn = -1;
+  Object.keys(codes).forEach(function (c) { if (codes[c] > bn) { bn = codes[c]; best = c; } });
+  return best;
+}
+
+/* Is this event a success or a failure?  Level first, result code second. */
+function okOf(e) {
+  if (e.f.resultCode) return e.f.resultCode === '0x00000000';
+  if (e.f.resultText) return /completed successfully|succeeded|success/i.test(e.f.resultText);
+  return e.lvl >= 4 || e.lvl === 0;
+}
+
+function bucketOf(l) { return (l === 1 || l === 2) ? 'error' : l === 3 ? 'warn' : 'info'; }
+var LEVEL_NAME = { 0: 'Information', 1: 'Critical', 2: 'Error', 3: 'Warning', 4: 'Information', 5: 'Verbose' };
+
+/* ── categorise an event so the UI can group activity ──────────── */
+function categoryOf(e) {
+  var m = e.m, i = e.i;
+  if (e.c === 'Sync' || (i >= 200 && i <= 299)) {
+    if (/OMA-DM (?:session|message|client)/i.test(m) || /OmaDm/i.test(m)) return 'OMA-DM session';
+  }
+  if (/MDM ConfigurationManager/i.test(m)) return 'CSP command';
+  if (/MDM PolicyManager: (?:Set policy|Dedicated notification|Machine Broadcast)/i.test(m)) return 'Policy write';
+  if (/ADMX/i.test(m)) return 'ADMX ingestion';
+  if (/Declared Configuration/i.test(m)) return 'Declared configuration';
+  if (/BitLocker CSP|DeviceStatus CSP|Wsc /i.test(m)) return 'Compliance / health';
+  if (/PushRouter|DmWapPushService|DcSvc/i.test(m)) return 'Service / push channel';
+  if (/Enroll/i.test(m)) return 'Enrollment';
+  return 'Other';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════════════════════ */
+var S = {
+  raw: null, events: [], channels: [], machine: {}, collected: null, windowInfo: null,
+  tmin: 0, tmax: 0,
+  filters: { range: 'all', chans: {}, levels: { error: true, warn: true, info: true }, q: '' },
+  tab: 'overview',
+  view: null,          // derived, filtered
+  sort: {}
+};
+
+var RANGES = [
+  { k: 'all', label: 'All' },
+  { k: '1h',  label: '1 h',  ms: 3600e3 },
+  { k: '24h', label: '24 h', ms: 24 * 3600e3 },
+  { k: '7d',  label: '7 d',  ms: 7 * 24 * 3600e3 },
+  { k: '30d', label: '30 d', ms: 30 * 24 * 3600e3 }
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   Ingest
+   ═══════════════════════════════════════════════════════════════ */
+function ingest(data) {
+  if (!data || !data.events || !data.events.length) throw new Error('That file has no events in it.');
+  if (data.tool && data.tool !== 'intune-log-explorer') throw new Error('Unrecognised file — expected output from the collector script.');
+
+  var evs = data.events.map(function (r, idx) {
+    var t = Date.parse(r.t);
+    var e = {
+      n: idx,
+      c: r.c || '?',
+      i: +r.i,
+      lvl: (r.l == null ? 4 : +r.l),
+      t: isNaN(t) ? 0 : t,
+      rec: r.r,
+      pid: r.p,
+      m: (r.m || '').trim(),
+      d: r.d || {}
+    };
+    e.f = fieldsOf(e.m, e.d, e.lvl);
+    e.ok = okOf(e);
+    e.bk = bucketOf(e.lvl);
+    e.cat = categoryOf(e);
+    e.hay = (e.m + ' ' + e.i + ' ' + (e.f.csp || '') + ' ' + (e.f.policy || '')).toLowerCase();
+    return e;
+  }).filter(function (e) { return e.t > 0; });
+
+  evs.sort(function (a, b) { return a.t - b.t || a.n - b.n; });
+
+  S.raw = data;
+  S.events = evs;
+  S.channels = (data.channels || []).map(function (c) { return c.n; });
+  /* never let an event fall through a filter for a channel the header forgot */
+  var seen = {};
+  S.channels.forEach(function (c) { seen[c] = 1; });
+  evs.forEach(function (e) { if (!seen[e.c]) { seen[e.c] = 1; S.channels.push(e.c); } });
+  S.machine = data.machine || {};
+  buildState(data);
+  S.collected = data.collected ? Date.parse(data.collected) : null;
+  S.windowInfo = data.window || null;
+  S.tmin = evs[0].t;
+  S.tmax = evs[evs.length - 1].t;
+  S.filters.chans = {};
+  S.channels.forEach(function (c) { S.filters.chans[c] = true; });
+  S.filters.levels = { error: true, warn: true, info: true };
+  S.filters.range = 'all';
+  S.filters.q = '';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Filtering
+   ═══════════════════════════════════════════════════════════════ */
+function rangeStart() {
+  var r = RANGES.filter(function (x) { return x.k === S.filters.range; })[0];
+  return (!r || !r.ms) ? -Infinity : S.tmax - r.ms;
+}
+function applyFilters() {
+  var from = rangeStart(), f = S.filters, q = f.q.trim().toLowerCase();
+  var terms = q ? q.split(/\s+/) : [];
+  return S.events.filter(function (e) {
+    if (e.t < from) return false;
+    if (!f.chans[e.c]) return false;
+    if (!f.levels[e.bk]) return false;
+    for (var i = 0; i < terms.length; i++) if (e.hay.indexOf(terms[i]) < 0) return false;
+    return true;
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Derivations
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── OMA-DM sync sessions ─────────────────────────────────────── */
+var SESSION_END = 209;
+var SESSION_OPEN = { 256: 1, 205: 1, 257: 1, 208: 1, 206: 1 };
+
+function deriveSessions(events) {
+  var sync = events.filter(function (e) { return e.c === 'Sync'; });
+  var out = [], cur = null;
+
+  function open(e) {
+    return {
+      sid: e.f.sessionId || null, start: e.t, end: e.t, events: [e],
+      sent: 0, recv: 0, errors: [], closed: false, result: null,
+      enrollment: e.f.enrollment || null, server: null, origin: null, mode: null
+    };
+  }
+  function push(ses, e) {
+    ses.events.push(e); ses.end = e.t;
+    if (!ses.sid && e.f.sessionId) ses.sid = e.f.sessionId;
+    if (!ses.enrollment && e.f.enrollment) ses.enrollment = e.f.enrollment;
+    if (e.i === 200) ses.sent++;
+    if (e.i === 202) ses.recv++;
+    if (e.bk === 'error') ses.errors.push(e);
+    if (e.i === 208) {
+      ses.server = grab(e.m, /with server:\s*\(([^)]*)\)/i);
+      ses.origin = grab(e.m, /PushRouterOrigin:\s*\(([^)]*)\)/i);
+      ses.mode   = grab(e.m, /Mode:\s*\(([^)]*)\)/i);
+    }
+    if (e.i === SESSION_END) { ses.closed = true; ses.result = e.f; }
+  }
+
+  sync.forEach(function (e) {
+    if (!cur) { cur = open(e); return; }
+    var gap = e.t - cur.end;
+    var newSid = e.f.sessionId && cur.sid && e.f.sessionId !== cur.sid;
+    if ((cur.closed && (SESSION_OPEN[e.i] || gap > 30e3)) || newSid || gap > 10 * 60e3) {
+      out.push(cur); cur = open(e); return;
+    }
+    push(cur, e);
+  });
+  if (cur) out.push(cur);
+
+  out.forEach(function (ses, ix) {
+    ses.idx = ix;
+    ses.dur = ses.end - ses.start;
+    ses.msgs = ses.sent + ses.recv;
+    if (!ses.closed) ses.status = 'incomplete';
+    else if (ses.result && ses.result.resultCode && ses.result.resultCode !== '0x00000000') ses.status = 'failed';
+    else if (ses.errors.length) ses.status = 'warned';
+    else ses.status = 'ok';
+  });
+  return out;
+}
+
+/* Settings/CSP events that landed inside a session window. */
+function eventsInWindow(events, from, to) {
+  return events.filter(function (e) { return e.c !== 'Sync' && e.t >= from - 1500 && e.t <= to + 15000; });
+}
+
+/* ── settings inventory ───────────────────────────────────────── */
+function cspArea(uri) {
+  var m = uri.match(/^\.\/(?:Device\/|User\/)?Vendor\/MSFT\/([^/]+)/i);
+  return m ? m[1] : (uri.split('/')[1] || 'CSP');
+}
+/* Only real writes belong in the settings inventory.  PolicyManager also logs
+   WNF notifications and session broadcasts that name a policy path without
+   writing anything — counting those would invent settings that were never set. */
+function isSettingWrite(e) {
+  if (/Dedicated notification|Broadcast|WNF|notification \(WNF\)/i.test(e.m)) return false;
+  if (e.f.csp) return true;
+  return /Set policy\b/i.test(e.m);
+}
+function keyOf(e) {
+  var f = e.f;
+  if (!isSettingWrite(e)) return null;
+  if (f.csp) {
+    var pm = f.csp.match(/\/Policy\/(?:Config|Result)\/([^/]+)\/([^/\s]+)\s*$/i);
+    if (pm) return { kind: 'policy', area: pm[1], name: pm[2], uri: f.csp, key: ('pol:' + pm[1] + '/' + pm[2]).toLowerCase() };
+    return { kind: 'csp', area: cspArea(f.csp), name: f.csp, uri: f.csp, key: ('csp:' + f.csp).toLowerCase() };
+  }
+  if (f.policy) {
+    var a = f.area || '';
+    return { kind: 'policy', area: a, name: f.policy, uri: null, key: ('pol:' + a + '/' + f.policy).toLowerCase() };
+  }
+  return null;
+}
+
+function deriveSettings(events) {
+  var map = {}, order = [];
+  events.forEach(function (e) {
+    var k = keyOf(e);
+    if (!k) return;
+    var r = map[k.key];
+    if (!r) {
+      r = map[k.key] = {
+        key: k.key, kind: k.kind, area: k.area, name: k.name, uri: k.uri,
+        first: e.t, last: e.t, attempts: 0, ok: 0, fail: 0,
+        lastOk: null, lastValue: null, lastResult: null, lastEvent: null,
+        enrollments: {}, values: {}, codes: {}, providers: {}, events: [], merge: false
+      };
+      order.push(r);
+    }
+    r.attempts++;
+    r.last = Math.max(r.last, e.t);
+    r.first = Math.min(r.first, e.t);
+    if (!r.uri && k.uri) r.uri = k.uri;
+    if (e.ok) r.ok++; else r.fail++;
+    r.lastOk = e.ok; r.lastEvent = e; r.lastResult = e.f.resultCode || e.f.resultText || null;
+    if (e.f.value != null) { r.lastValue = e.f.value; r.values[e.f.value] = (r.values[e.f.value] || 0) + 1; }
+    if (e.f.enrollment) r.enrollments[e.f.enrollment] = (r.enrollments[e.f.enrollment] || 0) + 1;
+    if (e.f.provider) r.providers[e.f.provider] = 1;
+    if (e.f.resultCode && e.f.resultCode !== '0x00000000') r.codes[e.f.resultCode] = (r.codes[e.f.resultCode] || 0) + 1;
+    if (e.f.merge) r.merge = true;
+    r.events.push(e);
+  });
+
+  order.forEach(function (r) {
+    r.enrollCount = Object.keys(r.enrollments).length;
+    r.valueCount = Object.keys(r.values).length;
+    r.state = r.fail === 0 ? 'applied' : (r.ok === 0 ? 'failing' : 'flapping');
+    r.flags = [];
+    if (r.state === 'failing') r.flags.push({ sev: 'crit', t: 'Never applied', why: r.fail + ' attempt(s), every one rejected' });
+    if (r.state === 'flapping') r.flags.push({ sev: 'warn', t: 'Intermittent', why: r.ok + ' accepted / ' + r.fail + ' rejected' });
+    if (r.enrollCount > 1) r.flags.push({ sev: 'warn', t: 'Two writers', why: 'written by ' + r.enrollCount + ' enrollment IDs' });
+    if (r.merge && r.enrollCount > 0) r.flags.push({ sev: 'warn', t: 'Merge', why: 'PolicyManager merged this across enrollments' });
+    if (r.valueCount > 1) r.flags.push({ sev: 'warn', t: 'Value churn', why: r.valueCount + ' different values written' });
+    r.sev = r.flags.reduce(function (a, f) { return f.sev === 'crit' ? 'crit' : a; }, r.flags.length ? 'warn' : null);
+  });
+
+  order.sort(function (a, b) { return b.last - a.last; });
+  return order;
+}
+
+/* ── drift / compliance mismatch ──────────────────────────────── */
+function deriveDrift(events) {
+  var groups = {}, order = [];
+  events.forEach(function (e) {
+    var isDrift = e.f.found || /different than set by policy|not compliant|does not match|mismatch/i.test(e.m);
+    if (!isDrift) return;
+    var sig = signature(e.m);
+    var g = groups[sig];
+    if (!g) { g = groups[sig] = { sig: sig, id: e.i, count: 0, first: e.t, last: e.t, sample: e, events: [] }; order.push(g); }
+    g.count++; g.last = Math.max(g.last, e.t); g.first = Math.min(g.first, e.t);
+    g.sample = e; g.events.push(e);
+  });
+  order.sort(function (a, b) { return b.count - a.count; });
+  return order;
+}
+
+/* ── activity by category ─────────────────────────────────────── */
+function deriveCategories(events) {
+  var m = {}, order = [];
+  events.forEach(function (e) {
+    var g = m[e.cat];
+    if (!g) { g = m[e.cat] = { cat: e.cat, n: 0, ok: 0, reported: 0, err: 0, warn: 0, last: 0, events: [] }; order.push(g); }
+    g.n++;
+    g.last = Math.max(g.last, e.t);
+    if (e.bk === 'error') g.err++; else if (e.bk === 'warn') g.warn++;
+    /* Judge only events whose outcome is knowable: they carry a result, they
+       are an error, or they are a settings write (an informational write that
+       logs no result is a write that went through). */
+    if (e.f.resultCode || e.f.resultText || e.bk === 'error' || isSettingWrite(e)) {
+      g.reported++;
+      if (e.ok && e.bk !== 'error') g.ok++;
+    }
+    g.events.push(e);
+  });
+  order.sort(function (a, b) { return b.n - a.n; });
+  return order;
+}
+
+/* ── policy identifiers ───────────────────────────────────────────
+   Pulled ONLY from labelled fields.  A bare GUID scrape would be wrong:
+   these logs are full of GUIDs that identify something other than a policy
+   (A1841308-3541-4FAB-BC81-F71556F20B4A is the Balanced power scheme, not an
+   Intune policy), so every identifier below is claimed by the label that
+   introduced it in the message text.                                       */
+function deriveIdentifiers(events) {
+  var map = {}, order = [];
+  function add(type, name, id, extra, e) {
+    if (!id) return;
+    var k = type + '|' + id, r = map[k];
+    if (!r) {
+      r = map[k] = { type: type, name: name || null, id: id, extra: {}, count: 0, first: e.t, last: e.t, events: [] };
+      order.push(r);
+    }
+    r.count++; r.last = Math.max(r.last, e.t); r.first = Math.min(r.first, e.t); r.events.push(e);
+    if (!r.name && name) r.name = name;
+    if (extra) for (var kk in extra) { if (extra[kk] && !r.extra[kk]) r.extra[kk] = extra[kk]; }
+  }
+
+  events.forEach(function (e) {
+    var m = e.m, x;
+
+    /* ADMX / custom-policy ingestion — the closest thing to an Intune policy
+       id these channels carry.  "RegPolicy_<guid>" embeds the profile guid. */
+    x = grab(m, /app name\s*\(([^)]*)\)/i);
+    if (x) {
+      var uid = grab(m, /unique Id\s*\(([^)]*)\)/i);
+      var gm = (uid || '').match(GUID_RE);
+      add('ADMX / custom policy', x, uid || x, {
+        policyGuid: gm ? gm[0] : null,
+        area: grab(m, /area\s*\(([^)]*)\)/i),
+        enrollment: e.f.enrollment
+      }, e);
+    }
+
+    /* Declared-configuration documents — one document per delivered policy */
+    var doc = grab(m, /Document Id:\s*\(([^)]*)\)/i) || grab(m, /docId:\s*\(([^)]*)\)/i);
+    if (doc && GUID_RE.test(doc)) {
+      add('Declared config document', null, doc.toUpperCase(), {
+        version: grab(m, /(?:docVersion|Version):\s*\(([^)]*)\)/i),
+        target: grab(m, /target:\s*\(([^)]*)\)/i),
+        user: grab(m, /(?:userId|Current User):\s*\(([^)]*)\)/i),
+        enrollment: e.f.enrollment
+      }, e);
+    }
+
+    /* The enrollment / configuration source that wrote the setting */
+    if (e.f.enrollment) {
+      add('Enrollment (config source)',
+        grab(m, /Enrollment Name:\s*\(([^)]*)\)/i) || grab(m, /with server:\s*\(([^)]*)\)/i),
+        e.f.enrollment, { enrollType: grab(m, /Enrollment Type:\s*\(([^)]*)\)/i) }, e);
+    }
+
+    /* ADMX app names that appear inside a CSP URI */
+    if (e.f.csp) {
+      var am = e.f.csp.match(/ADMXInstall\/([^/]+)/i);
+      if (am) add('ADMX app (from CSP URI)', am[1], am[1], { uri: e.f.csp }, e);
+    }
+  });
+
+  var rank = { 'ADMX / custom policy': 0, 'Declared config document': 1, 'ADMX app (from CSP URI)': 2, 'Enrollment (config source)': 3 };
+  order.sort(function (a, b) { return (rank[a.type] - rank[b.type]) || (b.count - a.count); });
+  return order;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Endpoint configuration state (registry snapshot from the collector)
+   ═══════════════════════════════════════════════════════════════ */
+function normVal(v) {
+  if (v == null) return null;
+  var t = String(v).trim();
+  if (/^0x[0-9a-f]+$/i.test(t)) return String(parseInt(t, 16));
+  if (/^-?\d+$/.test(t)) return String(parseInt(t, 10));
+  return t;
+}
+/* PolicyManager\current stores one logical policy as several value names:
+     <Policy>                    the effective value (absent for ADMX-backed ones)
+     <Policy>_WinningProvider    the enrollment that won  <- authoritative
+     <Policy>_ProviderSet        an internal flag, NOT a provider count
+     <Policy>_ADMXInstanceData   where an ADMX payload actually lives          */
+var SUFFIX_RE = /_(ProviderSet|WinningProvider|LastWrite|ADMXInstanceData|RegKeyPathRedirect|RegValueNameRedirect)$/i;
+function isMetaName(n) { return SUFFIX_RE.test(n); }
+
+function buildState(raw) {
+  var st = raw && raw.state;
+  if (!st || (!st.current && !st.nodes && !st.enrollments)) { S.state = null; return; }
+  var X = {
+    enrollments: st.enrollments || [],
+    current: st.current || [],
+    providers: st.providers || [],
+    nodes: st.nodes || [],
+    byEnroll: {}, effective: {}, writers: {}, nodeByUri: {}
+  };
+  X.enrollments.forEach(function (e) { if (e && e.id) X.byEnroll[String(e.id).toUpperCase()] = e; });
+  X.current.forEach(function (r) {
+    if (!r.name) return;
+    var m = r.name.match(SUFFIX_RE);
+    var base = m ? r.name.slice(0, r.name.length - m[0].length) : r.name;
+    if (!base) return;
+    var k = (r.area + '/' + base).toLowerCase();
+    var rec = X.effective[k];
+    if (!rec) rec = X.effective[k] = { scope: r.scope, area: r.area, name: base, value: null, winner: null, providerSet: null, admx: null };
+    if (!m) { rec.value = r.value; return; }
+    var sfx = m[1].toLowerCase();
+    if (sfx === 'winningprovider') rec.winner = String(r.value).toUpperCase();
+    else if (sfx === 'providerset') rec.providerSet = r.value;
+    else if (sfx === 'admxinstancedata') rec.admx = r.value;
+  });
+  X.providers.forEach(function (r) {
+    if (!r.name || isMetaName(r.name)) return;
+    var k = (r.area + '/' + r.name).toLowerCase();
+    (X.writers[k] = X.writers[k] || []).push(r);
+  });
+  X.nodes.forEach(function (n) { if (n && n.uri) X.nodeByUri[String(n.uri).toLowerCase()] = n; });
+
+  /* one row per managed policy: effective value + every enrollment that wrote it */
+  var keys = {};
+  Object.keys(X.effective).forEach(function (k) { keys[k] = 1; });
+  Object.keys(X.writers).forEach(function (k) { keys[k] = 1; });
+  X.rows = Object.keys(keys).map(function (k) {
+    var eff = X.effective[k] || null, w = X.writers[k] || [];
+    var src = eff || w[0];
+    var distinctVals = {}, distinctEnrolls = {};
+    w.forEach(function (x) { distinctVals[normVal(x.value)] = 1; distinctEnrolls[x.enrollment] = 1; });
+    var nVals = Object.keys(distinctVals).length;
+    var nEnrolls = Object.keys(distinctEnrolls).length;
+
+    var row = {
+      key: k, scope: (src.scope || ''), area: src.area, name: src.name,
+      writers: w, distinct: nVals, enrollCount: nEnrolls,
+      winner: eff ? eff.winner : null,
+      providerSet: eff ? eff.providerSet : null,
+      admx: eff ? eff.admx : null,
+      effective: eff ? eff.value : null
+    };
+
+    /* ADMX-backed policies keep no value under current — the payload lives in
+       the winning provider's own key, so resolve it there. */
+    if (row.effective == null && w.length) {
+      var fromWinner = row.winner && w.filter(function (x) { return x.enrollment === row.winner; })[0];
+      if (fromWinner) { row.effective = fromWinner.value; row.viaProvider = true; }
+      else if (w.length === 1) { row.effective = w[0].value; row.viaProvider = true; }
+    }
+    /* fall back to matching on value only when Windows named no winner */
+    if (!row.winner && row.effective != null) {
+      var ev = normVal(row.effective);
+      w.forEach(function (x) { if (!row.winner && normVal(x.value) === ev) row.winner = x.enrollment; });
+    }
+
+    row.status = (nEnrolls > 1 && nVals > 1) ? 'contested'
+               : (nEnrolls > 1) ? 'duplicated'
+               : (!eff && w.length) ? 'not-effective'
+               : 'ok';
+    return row;
+  });
+  X.contested = X.rows.filter(function (r) { return r.status === 'contested'; }).length;
+  X.duplicated = X.rows.filter(function (r) { return r.status === 'duplicated'; }).length;
+  X.byKey = {};
+  X.rows.forEach(function (r) { X.byKey[r.key] = r; });
+  S.state = X;
+}
+
+function enrollInfo(id) {
+  if (!id || !S.state) return null;
+  return S.state.byEnroll[String(id).toUpperCase()] || null;
+}
+function enrollLabel(id) {
+  var e = enrollInfo(id);
+  if (!e) return null;
+  return e.provider || e.upn || null;
+}
+function enrollCell(id) {
+  if (!id) return h('span', { class: 'dim', text: '—' });
+  var nm = enrollLabel(id);
+  return h('span', { class: nm ? '' : 'mono', text: nm || (String(id).slice(0, 8) + '…'), title: id + (nm ? '\n' + nm : '') });
+}
+
+/* ── error / warning signatures ───────────────────────────────── */
+function signature(m) {
+  return m
+    .replace(new RegExp(GUID_RE.source, 'g'), '{guid}')
+    .replace(/0x[0-9A-Fa-f]+/g, '{hex}')
+    .replace(/\b\d+\b/g, '{n}')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function deriveSignatures(events) {
+  var groups = {}, order = [];
+  events.forEach(function (e) {
+    if (e.bk === 'info') return;
+    var sig = e.i + '|' + signature(e.m), g = groups[sig];
+    if (!g) {
+      g = groups[sig] = {
+        sig: sig, id: e.i, ch: e.c, bk: e.bk, cat: e.cat, count: 0,
+        first: e.t, last: e.t, sample: e, events: [], codes: {}
+      };
+      order.push(g);
+    }
+    g.count++; g.last = Math.max(g.last, e.t); g.first = Math.min(g.first, e.t);
+    g.events.push(e);
+    if (e.f.resultCode) g.codes[e.f.resultCode] = (g.codes[e.f.resultCode] || 0) + 1;
+  });
+  order.sort(function (a, b) {
+    var w = { error: 0, warn: 1 };
+    return (w[a.bk] - w[b.bk]) || (b.count - a.count);
+  });
+  return order;
+}
+
+/* ── build everything for the current filter slice ────────────── */
+function derive() {
+  var evs = applyFilters();
+  var sessions = deriveSessions(evs);
+  var settings = deriveSettings(evs);
+  var v = {
+    events: evs,
+    sessions: sessions,
+    settings: settings,
+    drift: deriveDrift(evs),
+    cats: deriveCategories(evs),
+    ids: deriveIdentifiers(evs),
+    sigs: deriveSignatures(evs),
+    counts: { error: 0, warn: 0, info: 0 }
+  };
+  evs.forEach(function (e) { v.counts[e.bk]++; });
+  v.problems = settings.filter(function (r) { return r.flags.length; })
+    .sort(function (a, b) {
+      var w = { crit: 0, warn: 1 };
+      return (w[a.sev] - w[b.sev]) || (b.fail - a.fail) || (b.last - a.last);
+    });
+  v.applied = settings.filter(function (r) { return r.ok > 0; });
+  v.okSessions = sessions.filter(function (x) { return x.status === 'ok'; }).length;
+  v.badSessions = sessions.filter(function (x) { return x.status === 'failed' || x.status === 'incomplete'; }).length;
+  S.view = v;
+  return v;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Tooltip
+   ═══════════════════════════════════════════════════════════════ */
+var tipEl = $('#tip');
+function tipShow(x, y, title, rows) {
+  clear(tipEl);
+  tipEl.appendChild(h('div', { class: 't-title', text: title }));
+  rows.forEach(function (r) {
+    tipEl.appendChild(h('div', { class: 't-row' }, [
+      h('span', { class: 't-k' }, [
+        r.color ? h('span', { class: 't-line', style: { background: r.color } }) : null,
+        h('span', { text: r.k })
+      ]),
+      h('span', { class: 't-v', text: r.v })
+    ]));
+  });
+  tipEl.style.opacity = '1';
+  var w = tipEl.offsetWidth, hgt = tipEl.offsetHeight;
+  var lx = Math.min(Math.max(8, x + 14), window.innerWidth - w - 8);
+  var ly = Math.min(Math.max(8, y - hgt - 12), window.innerHeight - hgt - 8);
+  if (y - hgt - 12 < 8) ly = Math.min(y + 18, window.innerHeight - hgt - 8);
+  tipEl.style.left = lx + 'px';
+  tipEl.style.top = ly + 'px';
+}
+function tipHide() { tipEl.style.opacity = '0'; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Charts
+   ═══════════════════════════════════════════════════════════════ */
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function niceMax(v) {
+  if (v <= 5) return Math.max(1, v);
+  var e = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)), f = v / e;
+  var m = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10;
+  return m * e;
+}
+function roundedTop(x, y, w, hh, r) {
+  r = Math.max(0, Math.min(r, w / 2, hh));
+  return 'M' + x + ',' + (y + hh) + 'V' + (y + r) +
+         'a' + r + ',' + r + ' 0 0 1 ' + r + ',' + (-r) +
+         'h' + (w - 2 * r) +
+         'a' + r + ',' + r + ' 0 0 1 ' + r + ',' + r +
+         'V' + (y + hh) + 'Z';
+}
+
+/* Stacked column chart.  bins: [{label, tip, vals:{k:n}}]  series: [{k,name,color}] */
+function stackedColumns(host, bins, series, opts) {
+  opts = opts || {};
+  var W = Math.max(320, host.clientWidth || 640);
+  var padL = 46, padR = 10, padT = 10, plotH = opts.height || 190, axisH = 24;
+  var H = padT + plotH + axisH;
+  var plotW = W - padL - padR;
+  var n = bins.length || 1;
+  var band = plotW / n;
+  var bw = Math.min(24, Math.max(3, band * 0.6));
+  var maxV = niceMax(bins.reduce(function (a, b) {
+    var t = 0; series.forEach(function (s2) { t += (b.vals[s2.k] || 0); }); return Math.max(a, t);
+  }, 0));
+  var y = function (v) { return padT + plotH - (v / maxV) * plotH; };
+  var surface = cssVar('--surface');
+
+  var svg = s('svg', { width: '100%', height: H, viewBox: '0 0 ' + W + ' ' + H, role: 'img' });
+  svg.appendChild(s('title', null, opts.title || 'Chart'));
+
+  /* gridlines + y ticks */
+  var steps = 4;
+  for (var g = 0; g <= steps; g++) {
+    var v = maxV * g / steps, yy = y(v);
+    svg.appendChild(s('line', { x1: padL, x2: W - padR, y1: yy, y2: yy, stroke: g === 0 ? cssVar('--axis') : cssVar('--grid'), 'stroke-width': 1 }));
+    svg.appendChild(s('text', { x: padL - 8, y: yy + 3.5, 'text-anchor': 'end', fill: cssVar('--muted'), 'font-size': 10.5, style: 'font-variant-numeric:tabular-nums' }, num(Math.round(v))));
+  }
+
+  /* bars */
+  bins.forEach(function (b, ix) {
+    var cx = padL + band * ix + band / 2;
+    var x0 = cx - bw / 2;
+    var acc = 0, segs = [];
+    series.forEach(function (sr) {
+      var v = b.vals[sr.k] || 0; if (!v) return;
+      segs.push({ sr: sr, v: v, from: acc, to: acc + v }); acc += v;
+    });
+    segs.forEach(function (sg, si) {
+      var yTop = y(sg.to), yBot = y(sg.from);
+      var hh = Math.max(1, yBot - yTop - (si < segs.length - 1 ? 2 : 0));
+      var top = si === segs.length - 1;
+      if (top && hh > 4) svg.appendChild(s('path', { d: roundedTop(x0, yTop, bw, hh, 4), fill: sg.sr.color }));
+      else svg.appendChild(s('rect', { x: x0, y: yTop, width: bw, height: hh, fill: sg.sr.color }));
+    });
+    /* hit target — full band, generous */
+    var hit = s('rect', { x: padL + band * ix, y: padT, width: band, height: plotH, fill: 'transparent', tabindex: 0, role: 'button' });
+    var show = function (ev) {
+      var r = hit.getBoundingClientRect();
+      var rows = series.map(function (sr) { return { k: sr.name, v: num(b.vals[sr.k] || 0), color: sr.color }; });
+      rows.push({ k: 'Total', v: num(acc) });
+      tipShow(ev.clientX || (r.left + r.width / 2), ev.clientY || r.top, b.tip || b.label, rows);
+      hit.setAttribute('fill', 'rgba(128,128,128,.08)');
+    };
+    hit.addEventListener('pointermove', show);
+    hit.addEventListener('focus', function () { var r = hit.getBoundingClientRect(); show({ clientX: r.left + r.width / 2, clientY: r.top }); });
+    hit.addEventListener('pointerleave', function () { tipHide(); hit.setAttribute('fill', 'transparent'); });
+    hit.addEventListener('blur', function () { tipHide(); hit.setAttribute('fill', 'transparent'); });
+    svg.appendChild(hit);
+  });
+
+  /* x labels — thin them out so they never collide */
+  var every = Math.max(1, Math.ceil((n * 58) / plotW));
+  bins.forEach(function (b, ix) {
+    if (ix % every !== 0 && ix !== n - 1) return;
+    if (ix !== n - 1 && (n - 1 - ix) < every * 0.6) return;
+    svg.appendChild(s('text', {
+      x: padL + band * ix + band / 2, y: padT + plotH + 15, 'text-anchor': 'middle',
+      fill: cssVar('--muted'), 'font-size': 10.5
+    }, b.label));
+  });
+  host.appendChild(svg);
+  return svg;
+}
+
+/* Horizontal bars, single series. rows: [{label, value, sub, onclick}] */
+function hBars(host, rows, opts) {
+  opts = opts || {};
+  var W = Math.max(300, host.clientWidth || 560);
+  var rowH = 30, padT = 4, labelW = Math.min(300, Math.max(140, Math.round(W * 0.42)));
+  var valW = 52, plotW = Math.max(40, W - labelW - valW - 10);
+  var H = padT + rows.length * rowH + 4;
+  var maxV = niceMax(rows.reduce(function (a, r) { return Math.max(a, r.value); }, 0));
+  var color = opts.color || cssVar('--s1');
+  var svg = s('svg', { width: '100%', height: H, viewBox: '0 0 ' + W + ' ' + H, role: 'img' });
+  svg.appendChild(s('title', null, opts.title || 'Chart'));
+
+  rows.forEach(function (r, ix) {
+    var yTop = padT + ix * rowH;
+    var bh = 16;
+    var by = yTop + (rowH - bh) / 2;
+    var bw = Math.max(2, (r.value / maxV) * plotW);
+    var g = s('g', { tabindex: 0, role: r.onclick ? 'button' : 'img', style: r.onclick ? 'cursor:pointer' : '' });
+    g.appendChild(s('rect', { x: 0, y: yTop, width: W, height: rowH, fill: 'transparent' }));
+    var lbl = s('text', { x: 0, y: by + 12, fill: cssVar('--ink-2'), 'font-size': 12 }, r.label);
+    lbl.appendChild(s('title', null, r.title || r.label));
+    g.appendChild(lbl);
+    g.appendChild(s('rect', { x: labelW, y: by, width: bw, height: bh, rx: 0, fill: color }));
+    g.appendChild(s('rect', { x: labelW + Math.max(0, bw - 4), y: by, width: Math.min(4, bw), height: bh, rx: 4, fill: color }));
+    g.appendChild(s('text', {
+      x: labelW + bw + 8, y: by + 12, fill: cssVar('--ink-2'), 'font-size': 11.5,
+      style: 'font-variant-numeric:tabular-nums'
+    }, num(r.value)));
+    var show = function (ev) {
+      var rr = g.getBoundingClientRect();
+      tipShow(ev.clientX || rr.left + 40, ev.clientY || rr.top, r.title || r.label,
+        [{ k: opts.valueLabel || 'Count', v: num(r.value), color: color }].concat(r.extra || []));
+    };
+    g.addEventListener('pointermove', show);
+    g.addEventListener('focus', function () { var rr = g.getBoundingClientRect(); show({ clientX: rr.left + 60, clientY: rr.top }); });
+    g.addEventListener('pointerleave', tipHide);
+    g.addEventListener('blur', tipHide);
+    if (r.onclick) { g.addEventListener('click', r.onclick); g.addEventListener('keydown', function (e) { if (e.key === 'Enter') r.onclick(); }); }
+    svg.appendChild(g);
+  });
+  host.appendChild(svg);
+  /* Shorten labels that overflow their column.  Paths are trimmed from the
+     FRONT — two CSP nodes under one parent differ in their tail, so cutting
+     the tail would render them as the same label. */
+  Array.prototype.forEach.call(svg.querySelectorAll('text'), function (t) {
+    if (t.getAttribute('font-size') !== '12') return;
+    var full = t.textContent, guard = 0;
+    var over = function () { return t.getComputedTextLength && t.getComputedTextLength() > labelW - 14; };
+    if (full.indexOf('/') > -1) {
+      var parts = full.split('/').filter(function (x) { return x && x !== '.' && x !== '…'; });
+      while (over() && parts.length > 1 && guard++ < 40) { parts.shift(); t.textContent = '…/' + parts.join('/'); }
+    }
+    while (over() && t.textContent.length > 8 && guard++ < 200) t.textContent = t.textContent.slice(0, -2) + '…';
+    if (t.textContent !== full) { if (!t.querySelector('title')) t.appendChild(s('title', null, full)); }
+  });
+  return svg;
+}
+
+function legend(series) {
+  return h('div', { class: 'legend' }, series.map(function (sr) {
+    return h('span', { class: 'key' }, [h('span', { class: 'sw', style: { background: sr.color } }), h('span', { text: sr.name })]);
+  }));
+}
+
+/* A card holding a chart + its table twin */
+function chartCard(title, hint, series, buildChart, buildTable) {
+  var body = h('div');
+  var tableWrap = h('div', { class: 'hidden' });
+  var showing = { table: false };
+  var btn = h('button', { class: 'btn sm', text: 'Table' });
+  var head = h('div', { class: 'chart-head' }, [
+    h('div', {}, [h('h2', { text: title }), hint ? h('div', { class: 'hint', text: hint }) : null]),
+    h('span', { class: 'spacer', style: { flex: '1' } }),
+    series && series.length > 1 ? legend(series) : null,
+    btn
+  ]);
+  var card = h('div', { class: 'card' }, [head, body, tableWrap]);
+  function draw() {
+    clear(body); buildChart(body);
+  }
+  btn.addEventListener('click', function () {
+    showing.table = !showing.table;
+    btn.textContent = showing.table ? 'Chart' : 'Table';
+    body.classList.toggle('hidden', showing.table);
+    tableWrap.classList.toggle('hidden', !showing.table);
+    if (showing.table && !tableWrap.firstChild) tableWrap.appendChild(buildTable());
+  });
+  card._redraw = draw;
+  setTimeout(draw, 0);
+  return card;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Table helper — cols: [{k,label,cls,val(row),cell(row),w}]
+   ═══════════════════════════════════════════════════════════════ */
+function dataTable(id, cols, rows, opts) {
+  opts = opts || {};
+  var st = S.sort[id] || (S.sort[id] = { k: opts.sortKey || cols[0].k, dir: opts.sortDir || -1 });
+  var col = cols.filter(function (c) { return c.k === st.k; })[0] || cols[0];
+  var sorted = rows.slice().sort(function (a, b) {
+    var va = col.val ? col.val(a) : '', vb = col.val ? col.val(b) : '';
+    if (va == null) va = ''; if (vb == null) vb = '';
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return String(va).localeCompare(String(vb)) * st.dir;
+    }
+    return (va - vb) * st.dir;
+  });
+  if (!S.expand) S.expand = {};
+  var limit = (opts.limit && !S.expand[id]) ? opts.limit : 0;
+  var shown = limit ? sorted.slice(0, limit) : sorted;
+
+  var thead = h('thead', {}, [h('tr', {}, cols.map(function (c) {
+    return h('th', {
+      class: (c.cls || '') + (c.val ? ' sortable' : ''),
+      onclick: c.val ? function () {
+        if (st.k === c.k) st.dir = -st.dir; else { st.k = c.k; st.dir = c.defDir || -1; }
+        render();
+      } : null
+    }, [c.label, c.k === st.k ? h('span', { class: 'ar', text: st.dir < 0 ? ' ▼' : ' ▲' }) : null]);
+  }))]);
+
+  var tbody = h('tbody', {}, shown.map(function (r) {
+    var tr = h('tr', { class: opts.onRow ? 'clickable' : '' }, cols.map(function (c) {
+      var td = h('td', { class: c.cls || '' });
+      var content = c.cell(r);
+      if (content == null) content = '';
+      if (typeof content === 'object') td.appendChild(content); else td.textContent = String(content);
+      return td;
+    }));
+    if (opts.onRow) {
+      tr.addEventListener('click', function () { opts.onRow(r); });
+      tr.setAttribute('tabindex', '0');
+      tr.addEventListener('keydown', function (e) { if (e.key === 'Enter') opts.onRow(r); });
+    }
+    return tr;
+  }));
+
+  var wrap = h('div', { class: 'tw' }, [h('table', {}, [thead, tbody])]);
+  if (!rows.length) return h('div', { class: 'empty', text: opts.empty || 'Nothing here in the current slice.' });
+  if (limit && sorted.length > limit) {
+    wrap.appendChild(h('div', { style: { padding: '10px 0 2px', textAlign: 'center' } }, [
+      h('button', {
+        class: 'btn sm', text: 'Show all ' + num(sorted.length),
+        onclick: function () { S.expand[id] = true; render(); }
+      })
+    ]));
+  }
+  return wrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Shared cell renderers
+   ═══════════════════════════════════════════════════════════════ */
+function statusPill(kind, label) {
+  return h('span', { class: 'st st-' + kind }, [h('span', { class: 'dot' }), h('span', { text: label })]);
+}
+function levelPill(e) {
+  if (e.bk === 'error') return statusPill('crit', LEVEL_NAME[e.lvl] || 'Error');
+  if (e.bk === 'warn') return statusPill('warn', 'Warning');
+  return statusPill('info', 'Information');
+}
+function sessionPill(ses) {
+  if (ses.status === 'ok') return statusPill('good', 'Completed');
+  if (ses.status === 'failed') return statusPill('crit', 'Failed');
+  if (ses.status === 'warned') return statusPill('serious', 'Completed with errors');
+  return statusPill('muted', 'Incomplete');
+}
+function settingPill(r) {
+  if (r.state === 'applied') return statusPill('good', 'Applied');
+  if (r.state === 'failing') return statusPill('crit', 'Rejected');
+  return statusPill('warn', 'Intermittent');
+}
+function codeCell(code) {
+  if (!code) return h('span', { class: 'dim', text: '—' });
+  var d = decodeHr(code);
+  var sp = h('span', { class: 'mono', text: d ? d.code : code });
+  if (d && (d.text || d.facility)) sp.setAttribute('title', (d.text || '') + (d.facility ? ' [' + d.facility + ']' : ''));
+  return sp;
+}
+/* Long CSP URIs differ in their tail, not their head — keep the tail visible
+   so two rules under the same node don't render as the same row. */
+function shortUri(u) {
+  if (!u || u.length <= 58) return u;
+  var parts = u.split('/').filter(function (x) { return x && x !== '.'; });
+  return '…/' + parts.slice(-3).join('/');
+}
+function settingLabel(r) {
+  return r.kind === 'policy' ? (r.area ? r.area + ' / ' + r.name : r.name) : shortUri(r.name);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Drawer
+   ═══════════════════════════════════════════════════════════════ */
+var drawer = $('#drawer'), scrim = $('#scrim');
+function openDrawer(title, sub, body) {
+  $('#drawer-title').textContent = title;
+  $('#drawer-sub').textContent = sub || '';
+  clear($('#drawer-body')).appendChild(body);
+  scrim.classList.remove('hidden');
+  document.body.classList.add('drawer-open');
+  drawer.setAttribute('aria-hidden', 'false');
+  $('#drawer-close').focus();
+}
+function closeDrawer() {
+  document.body.classList.remove('drawer-open');
+  drawer.setAttribute('aria-hidden', 'true');
+  setTimeout(function () { scrim.classList.add('hidden'); }, 180);
+}
+$('#drawer-close').addEventListener('click', closeDrawer);
+scrim.addEventListener('click', closeDrawer);
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDrawer(); });
+
+function dl(pairs) {
+  var d = h('dl', { class: 'dl' });
+  pairs.forEach(function (p) {
+    if (p[1] == null || p[1] === '') return;
+    d.appendChild(h('dt', { text: p[0] }));
+    var dd = h('dd');
+    if (typeof p[1] === 'object') dd.appendChild(p[1]); else dd.textContent = String(p[1]);
+    d.appendChild(dd);
+  });
+  return d;
+}
+function sec(title, node) { return h('div', { class: 'sec' }, [h('h3', { text: title }), node]); }
+
+/* compact event stream used inside drawers */
+function eventStream(events, opts) {
+  opts = opts || {};
+  return dataTable(opts.id || ('stream-' + Math.random()), [
+    { k: 't', label: 'Time', cls: 'nowrap', val: function (e) { return e.t; }, cell: function (e) { return fmtShort(e.t); } },
+    { k: 'lvl', label: '', cls: 'nowrap', val: function (e) { return e.bk; }, cell: levelPill },
+    { k: 'i', label: 'ID', cls: 'num', val: function (e) { return e.i; }, cell: function (e) { return e.i; } },
+    { k: 'm', label: 'Message', val: function (e) { return e.m; }, cell: function (e) { return h('div', { class: 'trunc wide', text: e.m, title: e.m }); } }
+  ], events, { sortKey: 't', sortDir: 1, limit: opts.limit || 60, onRow: drawerEvent, empty: opts.empty || 'No events.' });
+}
+
+function drawerEvent(e) {
+  var d = decodeHr(e.f.resultCode);
+  var body = h('div', {}, [
+    dl([
+      ['Time', fmtDT(e.t) + '  (' + fmtAgo(e.t, S.tmax) + ' before the last event)'],
+      ['Channel', e.c],
+      ['Event ID', String(e.i)],
+      ['Level', LEVEL_NAME[e.lvl] || String(e.lvl)],
+      ['Category', e.cat],
+      ['Record / PID', (e.rec != null ? '#' + e.rec : '—') + (e.pid ? '  ·  pid ' + e.pid : '')],
+      ['Policy', e.f.policy],
+      ['Area', e.f.area],
+      ['CSP URI', e.f.csp ? h('span', { class: 'mono', text: e.f.csp }) : null],
+      ['CSP / provider', e.f.provider],
+      ['Command type', e.f.cmdType],
+      ['Value written', e.f.value],
+      ['Enrollment ID', e.f.enrollment ? h('span', { class: 'mono', text: e.f.enrollment }) : null],
+      ['Session ID', e.f.sessionId],
+      ['Result', e.f.resultText || (e.f.resultCode ? e.f.resultCode : null)]
+    ]),
+    sec('Message', h('pre', { class: 'msg', text: e.m }))
+  ]);
+
+  if (d) {
+    body.appendChild(sec('Result code', h('div', {}, [
+      dl([
+        ['Code', h('span', { class: 'mono', text: d.code })],
+        ['Facility', d.facility],
+        ['Meaning', d.text]
+      ]),
+      d.hint ? h('p', { class: 'note', style: { marginTop: '10px' }, text: 'Hint (interpretation, not decoded from the log): ' + d.hint }) : null
+    ])));
+  }
+
+  var keys = Object.keys(e.d || {});
+  if (keys.length) {
+    body.appendChild(sec('Event data fields', dl(keys.map(function (k) {
+      return [k, h('span', { class: 'mono', text: String(e.d[k]) })];
+    }))));
+  }
+  openDrawer('Event ' + e.i, e.c + ' · ' + fmtDT(e.t), body);
+}
+
+function drawerSession(ses) {
+  var others = eventsInWindow(S.view.events, ses.start, ses.end);
+  var settings = deriveSettings(others).filter(function (r) { return r.attempts > 0; });
+  var failed = others.filter(function (x) { return x.bk === 'error'; });
+  var res = ses.result ? decodeHr(ses.result.resultCode) : null;
+
+  var body = h('div', {}, [
+    dl([
+      ['Status', sessionPill(ses)],
+      ['Started', fmtDT(ses.start)],
+      ['Ended', ses.closed ? fmtDT(ses.end) : '— (no session-ended event)'],
+      ['Duration', fmtDur(ses.dur)],
+      ['Session ID', ses.sid != null ? String(ses.sid) : '—'],
+      ['Enrollment ID', ses.enrollment ? h('span', { class: 'mono', text: ses.enrollment }) : null],
+      ['Server', ses.server],
+      ['Messages', ses.sent + ' sent · ' + ses.recv + ' received'],
+      ['Result', ses.result ? (ses.result.resultText || ses.result.resultCode) : '—'],
+      ['Errors in session', String(ses.errors.length)]
+    ]),
+    res && !res.ok ? h('p', { class: 'note err', text: (res.text || res.code) + (res.hint ? '  ' + res.hint : '') }) : null,
+    sec('Session events (' + ses.events.length + ')', eventStream(ses.events, { id: 'ses-ev', limit: 80 })),
+    sec('Settings touched while this session ran (' + settings.length + ')',
+      settings.length
+        ? dataTable('ses-set', [
+            { k: 'name', label: 'Setting', val: function (r) { return settingLabel(r); }, cell: function (r) { return h('div', { class: 'trunc', text: settingLabel(r), title: r.uri || settingLabel(r) }); } },
+            { k: 'val', label: 'Value', cls: 'mono', val: function (r) { return r.lastValue; }, cell: function (r) { return r.lastValue == null ? '—' : r.lastValue; } },
+            { k: 'st', label: 'Outcome', cls: 'nowrap', val: function (r) { return r.state; }, cell: settingPill }
+          ], settings, { sortKey: 'st', sortDir: 1, onRow: drawerSetting, empty: 'No configuration events landed in this window.' })
+        : h('div', { class: 'empty', text: 'No configuration events landed in this window.' })),
+    failed.length ? sec('Errors in the same window (' + failed.length + ')', eventStream(failed, { id: 'ses-err', limit: 40 })) : null
+  ]);
+  openDrawer('Sync session' + (ses.sid != null ? ' ' + ses.sid : ''), fmtDT(ses.start) + ' · ' + fmtDur(ses.dur), body);
+}
+
+function drawerSetting(r) {
+  var enrolls = Object.keys(r.enrollments);
+  var values = Object.keys(r.values);
+  var codes = Object.keys(r.codes);
+  var body = h('div', {}, [
+    dl([
+      ['State', settingPill(r)],
+      ['Kind', r.kind === 'policy' ? 'Policy CSP setting' : 'CSP node'],
+      ['Area / CSP', r.area],
+      ['Name', r.name],
+      ['CSP URI', r.uri ? h('span', { class: 'mono', text: r.uri }) : null],
+      ['Attempts', r.attempts + ' (' + r.ok + ' accepted, ' + r.fail + ' rejected)'],
+      ['Last value', r.lastValue],
+      ['All values seen', values.length > 1 ? values.join(', ') : null],
+      ['First seen', fmtDT(r.first)],
+      ['Last seen', fmtDT(r.last)],
+      ['Written by', enrolls.length ? h('span', { class: 'mono', text: enrolls.join('  ·  ') }) : null]
+    ]),
+    r.flags.length ? sec('Why this is flagged', h('div', {}, r.flags.map(function (f) {
+      return h('p', { class: 'note' + (f.sev === 'crit' ? ' err' : ''), style: { marginTop: '8px' } }, [
+        h('strong', { text: f.t + ': ' }), f.why
+      ]);
+    }))) : null,
+    codes.length ? sec('Result codes', h('div', {}, codes.map(function (c) {
+      var d = decodeHr(c);
+      return h('p', { class: 'note', style: { marginTop: '8px' } }, [
+        h('strong', { class: 'mono', text: c }), ' × ' + r.codes[c] + (d && d.facility ? '  ·  ' + d.facility : ''),
+        d && d.text ? h('div', { text: d.text }) : null,
+        d && d.hint ? h('div', { class: 'dim', text: 'Hint: ' + d.hint }) : null
+      ]);
+    }))) : null,
+    sec('History (' + r.events.length + ' events)', eventStream(r.events, { id: 'set-ev', limit: 100 }))
+  ]);
+  openDrawer(settingLabel(r), r.uri || (r.kind === 'policy' ? 'Policy CSP · ' + (r.area || '') : 'CSP node'), body);
+}
+
+function drawerSig(g) {
+  var codes = Object.keys(g.codes);
+  var body = h('div', {}, [
+    dl([
+      ['Occurrences', num(g.count)],
+      ['Event ID', String(g.id)],
+      ['Channel', g.ch],
+      ['Severity', g.bk === 'error' ? 'Error' : 'Warning'],
+      ['Category', g.cat],
+      ['First seen', fmtDT(g.first)],
+      ['Last seen', fmtDT(g.last) + '  (' + fmtAgo(g.last, S.tmax) + ' before the last event)']
+    ]),
+    codes.length ? sec('Result codes', h('div', {}, codes.map(function (c) {
+      var d = decodeHr(c);
+      return h('p', { class: 'note', style: { marginTop: '8px' } }, [
+        h('strong', { class: 'mono', text: c }), ' × ' + g.codes[c],
+        d && d.text ? h('div', { text: d.text }) : null,
+        d && d.hint ? h('div', { class: 'dim', text: 'Hint: ' + d.hint }) : null
+      ]);
+    }))) : null,
+    sec('Example message', h('pre', { class: 'msg', text: g.sample.m })),
+    sec('Occurrences', eventStream(g.events, { id: 'sig-ev', limit: 60 }))
+  ]);
+  openDrawer('Event ' + g.id, g.count + ' occurrence' + (g.count === 1 ? '' : 's') + ' · ' + g.ch, body);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Time bucketing
+   ═══════════════════════════════════════════════════════════════ */
+function binEvents(evs) {
+  if (!evs.length) return { bins: [], unit: 3600e3 };
+  var t0 = evs[0].t, t1 = evs[evs.length - 1].t, span = Math.max(1, t1 - t0);
+  var units = [60e3, 5 * 60e3, 15 * 60e3, 30 * 60e3, 3600e3, 3 * 3600e3, 6 * 3600e3, 12 * 3600e3, 24 * 3600e3, 7 * 24 * 3600e3];
+  var unit = units[units.length - 1];
+  for (var i = 0; i < units.length; i++) { if (span / units[i] <= 56) { unit = units[i]; break; } }
+  var tz = new Date().getTimezoneOffset() * 60000;
+  var floor = function (t) { return Math.floor((t - tz) / unit) * unit + tz; };
+  var start = floor(t0), end = floor(t1), bins = [], index = {};
+  for (var t = start; t <= end; t += unit) {
+    var b = { t: t, label: '', tip: '', vals: { info: 0, warn: 0, error: 0 }, events: [] };
+    bins.push(b); index[t] = b;
+    b.label = unit >= 24 * 3600e3 ? fmtDay(t) : (pad(new Date(t).getHours()) + ':' + pad(new Date(t).getMinutes()));
+    b.tip = unit >= 24 * 3600e3
+      ? fmtDT(t).slice(0, 10)
+      : fmtDT(t) + ' – ' + fmtDT(t + unit - 1).slice(11);
+  }
+  evs.forEach(function (e) { var b = index[floor(e.t)]; if (b) { b.vals[e.bk]++; b.events.push(e); } });
+  return { bins: bins, unit: unit };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Views
+   ═══════════════════════════════════════════════════════════════ */
+function tile(label, value, meta) {
+  return h('div', { class: 'card tile' }, [
+    h('div', { class: 'label', text: label }),
+    h('div', { class: 'value', text: value }),
+    meta ? (typeof meta === 'object' ? meta : h('div', { class: 'meta', text: meta })) : null
+  ]);
+}
+
+function viewOverview(v) {
+  var root = h('div', { class: 'grid' });
+  var sessions = v.sessions, nSes = sessions.length;
+  var rate = nSes ? pct(v.okSessions, nSes) : null;
+  var last = sessions.length ? sessions[sessions.length - 1] : null;
+
+  /* hero + tiles */
+  var heroSub = nSes
+    ? v.okSessions + ' of ' + nSes + ' OMA-DM sessions completed cleanly'
+    : 'No OMA-DM sessions in this slice';
+  var hero = h('div', { class: 'card hero' }, [
+    h('div', { class: 'label', text: 'Sync success rate' }),
+    h('div', { class: 'value', text: rate == null ? '—' : rate + '%' }),
+    h('div', { class: 'meta', text: heroSub }),
+    last ? h('div', { class: 'meta', style: { marginTop: '8px' } }, [
+      'Last sync ', h('strong', { text: fmtAgo(last.start, S.tmax) }), ' — ', sessionPill(last)
+    ]) : null
+  ]);
+
+  var failing = v.settings.filter(function (r) { return r.state === 'failing'; });
+  var contested = v.settings.filter(function (r) { return r.enrollCount > 1 || r.valueCount > 1; });
+  var tiles = h('div', { class: 'tiles' }, [
+    tile('Sync sessions', num(nSes), nSes ? fmtDur(Math.round(sessions.reduce(function (a, x) { return a + x.dur; }, 0) / nSes)) + ' average' : '—'),
+    tile('Settings written', num(v.settings.length), v.applied.length + ' accepted at least once'),
+    tile('Settings rejected', num(failing.length), h('div', { class: 'meta' }, [failing.length ? statusPill('crit', 'never applied') : statusPill('good', 'none')])),
+    tile('Errors / warnings', num(v.counts.error) + ' / ' + num(v.counts.warn), num(v.events.length) + ' events in range')
+  ]);
+  root.appendChild(h('div', { class: 'hero-row' }, [hero, tiles]));
+
+  /* activity chart */
+  var series = [
+    { k: 'info', name: 'Information', color: cssVar('--s1') },
+    { k: 'warn', name: 'Warning', color: cssVar('--warn') },
+    { k: 'error', name: 'Error', color: cssVar('--crit') }
+  ];
+  var binned = binEvents(v.events);
+  root.appendChild(chartCard(
+    'Activity over time', 'Events per ' + humanUnit(binned.unit) + ', by severity. Hover a column for its exact counts, or switch to the table.',
+    series,
+    function (host) { stackedColumns(host, binned.bins, series, { title: 'Events over time by severity' }); },
+    function () {
+      return dataTable('act-tbl', [
+        { k: 't', label: 'Period', cls: 'nowrap', val: function (b) { return b.t; }, cell: function (b) { return b.tip; } },
+        { k: 'i', label: 'Information', cls: 'num', val: function (b) { return b.vals.info; }, cell: function (b) { return num(b.vals.info); } },
+        { k: 'w', label: 'Warning', cls: 'num', val: function (b) { return b.vals.warn; }, cell: function (b) { return num(b.vals.warn); } },
+        { k: 'e', label: 'Error', cls: 'num', val: function (b) { return b.vals.error; }, cell: function (b) { return num(b.vals.error); } },
+        { k: 'tot', label: 'Total', cls: 'num', val: function (b) { return b.events.length; }, cell: function (b) { return num(b.events.length); } }
+      ], binned.bins, { sortKey: 't', sortDir: 1 });
+    }
+  ));
+
+  /* rejected settings + recent sessions */
+  var top = v.settings.filter(function (r) { return r.fail > 0; })
+    .sort(function (a, b) { return b.fail - a.fail; }).slice(0, 8);
+  var rejectedCard = chartCard(
+    'Settings the device rejected', top.length ? 'Rejected write attempts, by setting. Click a bar for the full history.' : null,
+    null,
+    function (host) {
+      if (!top.length) { host.appendChild(h('div', { class: 'empty', text: 'No rejected settings in this slice.' })); return; }
+      hBars(host, top.map(function (r) {
+        return {
+          label: settingLabel(r), title: r.uri || settingLabel(r), value: r.fail,
+          extra: [{ k: 'Accepted', v: num(r.ok) }],
+          onclick: function () { drawerSetting(r); }
+        };
+      }), { valueLabel: 'Rejected', color: cssVar('--crit'), title: 'Rejected writes by setting' });
+    },
+    function () {
+      return dataTable('rej-tbl', [
+        { k: 'n', label: 'Setting', val: function (r) { return settingLabel(r); }, cell: function (r) { return h('div', { class: 'trunc', text: settingLabel(r), title: r.uri || '' }); } },
+        { k: 'f', label: 'Rejected', cls: 'num', val: function (r) { return r.fail; }, cell: function (r) { return num(r.fail); } },
+        { k: 'o', label: 'Accepted', cls: 'num', val: function (r) { return r.ok; }, cell: function (r) { return num(r.ok); } }
+      ], top, { sortKey: 'f', onRow: drawerSetting });
+    }
+  );
+
+  var recent = sessions.slice(-10).reverse();
+  var sesCard = h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'Recent sync sessions' }),
+      h('div', { class: 'hint', text: 'Newest first. Open one to see the settings it delivered.' })
+    ])]),
+    dataTable('ov-ses', [
+      { k: 't', label: 'Started', cls: 'nowrap', val: function (x) { return x.start; }, cell: function (x) { return fmtShort(x.start); } },
+      { k: 'd', label: 'Duration', cls: 'num', val: function (x) { return x.dur; }, cell: function (x) { return fmtDur(x.dur); } },
+      { k: 'm', label: 'Msgs', cls: 'num', val: function (x) { return x.msgs; }, cell: function (x) { return x.msgs; } },
+      { k: 's', label: 'Result', cls: 'nowrap', val: function (x) { return x.status; }, cell: sessionPill }
+    ], recent, { sortKey: 't', onRow: drawerSession, empty: 'No sync sessions in this slice.' })
+  ]);
+  root.appendChild(h('div', { class: 'grid cols-2' }, [rejectedCard, sesCard]));
+
+  /* what the client actually did */
+  root.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'What the client did' }),
+      h('div', { class: 'hint', text: 'Activity grouped by what the MDM client was doing. “Succeeded” counts only events that reported an outcome and reported a good one, so it will not add up to the event total — plenty of events are progress notes with no result.' })
+    ])]),
+    dataTable('cats', [
+      { k: 'cat', label: 'Activity', val: function (g) { return g.cat; }, cell: function (g) { return g.cat; } },
+      { k: 'n', label: 'Events', cls: 'num', val: function (g) { return g.n; }, cell: function (g) { return num(g.n); } },
+      {
+        k: 'ok', label: 'Succeeded', cls: 'num', val: function (g) { return g.ok; },
+        cell: function (g) { return g.reported ? h('span', { class: 'st st-good', style: { justifyContent: 'flex-end' } }, [h('span', { class: 'dot' }), h('span', { text: num(g.ok) + ' of ' + num(g.reported) })]) : h('span', { class: 'dim', text: '—' }); }
+      },
+      { k: 'e', label: 'Errors', cls: 'num', val: function (g) { return g.err; }, cell: function (g) { return g.err ? h('span', { class: 'st st-crit', style: { justifyContent: 'flex-end' } }, [h('span', { class: 'dot' }), h('span', { text: num(g.err) })]) : h('span', { class: 'dim', text: '—' }); } },
+      { k: 'w', label: 'Warnings', cls: 'num', val: function (g) { return g.warn; }, cell: function (g) { return g.warn ? num(g.warn) : h('span', { class: 'dim', text: '—' }); } },
+      { k: 'l', label: 'Last seen', cls: 'nowrap', val: function (g) { return g.last; }, cell: function (g) { return fmtShort(g.last); } }
+    ], v.cats, {
+      sortKey: 'n', sortDir: -1, empty: 'No activity in this slice.',
+      onRow: function (g) {
+        openDrawer(g.cat, num(g.n) + ' events · ' + num(g.ok) + ' of ' + num(g.reported) + ' reported outcomes succeeded',
+          h('div', {}, [
+            dl([
+              ['Events', num(g.n)],
+              ['Reported success', g.reported ? num(g.ok) + ' of ' + num(g.reported) : '—'],
+              ['Errors', num(g.err)],
+              ['Warnings', num(g.warn)],
+              ['Last seen', fmtDT(g.last)]
+            ]),
+            sec('Events', eventStream(g.events, { id: 'cat-ev', limit: 80 }))
+          ]));
+      }
+    })
+  ]));
+
+  /* attention */
+  root.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'Needs attention' }),
+      h('div', { class: 'hint', text: 'Settings that never applied, that flip between accepted and rejected, or that more than one authority writes.' })
+    ])]),
+    problemsTable(v.problems.slice(0, 12), 'ov-prob')
+  ]));
+
+  return root;
+}
+function humanUnit(u) {
+  if (u >= 7 * 24 * 3600e3) return 'week';
+  if (u >= 24 * 3600e3) return 'day';
+  if (u >= 3600e3) return (u / 3600e3) + ' hour' + (u > 3600e3 ? 's' : '');
+  return (u / 60e3) + ' min';
+}
+
+function flagCell(r) {
+  return h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+    r.flags.map(function (f) { return h('span', { class: 'tag', text: f.t, title: f.why }); }));
+}
+function problemsTable(rows, id) {
+  return dataTable(id, [
+    { k: 'sev', label: '', cls: 'nowrap', val: function (r) { return r.sev === 'crit' ? 0 : 1; }, cell: settingPill },
+    { k: 'n', label: 'Setting', val: function (r) { return settingLabel(r); }, cell: function (r) { return h('div', { class: 'trunc', text: settingLabel(r), title: r.uri || settingLabel(r) }); } },
+    { k: 'fl', label: 'Flags', val: null, cell: flagCell },
+    { k: 'a', label: 'Tries', cls: 'num', val: function (r) { return r.attempts; }, cell: function (r) { return r.attempts; } },
+    { k: 'f', label: 'Rejected', cls: 'num', val: function (r) { return r.fail; }, cell: function (r) { return r.fail; } },
+    { k: 'c', label: 'Result code', cls: 'nowrap', val: function (r) { return topCode(r.codes) || ''; }, cell: function (r) { return codeCell(topCode(r.codes)); } },
+    { k: 'l', label: 'Last seen', cls: 'nowrap', val: function (r) { return r.last; }, cell: function (r) { return fmtShort(r.last); } }
+  ], rows, { sortKey: 'sev', sortDir: 1, onRow: drawerSetting, empty: 'Nothing flagged — every setting in this slice applied cleanly from a single authority.' });
+}
+
+function viewSyncs(v) {
+  return h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'OMA-DM sync sessions' }),
+      h('div', { class: 'hint', text: 'Reconstructed from the Sync channel: a session runs from the client connecting to the “session ended” event. Open one to see its message flow and the settings that changed while it ran.' })
+    ])]),
+    dataTable('syncs', [
+      { k: 't', label: 'Started', cls: 'nowrap', val: function (x) { return x.start; }, cell: function (x) { return fmtDT(x.start); } },
+      { k: 'id', label: 'Session', cls: 'num', val: function (x) { return x.sid || 0; }, cell: function (x) { return x.sid == null ? '—' : x.sid; } },
+      { k: 'd', label: 'Duration', cls: 'num', val: function (x) { return x.dur; }, cell: function (x) { return fmtDur(x.dur); } },
+      { k: 'sent', label: 'Sent', cls: 'num', val: function (x) { return x.sent; }, cell: function (x) { return x.sent; } },
+      { k: 'recv', label: 'Recv', cls: 'num', val: function (x) { return x.recv; }, cell: function (x) { return x.recv; } },
+      { k: 'ev', label: 'Events', cls: 'num', val: function (x) { return x.events.length; }, cell: function (x) { return x.events.length; } },
+      { k: 'err', label: 'Errors', cls: 'num', val: function (x) { return x.errors.length; }, cell: function (x) { return x.errors.length || '—'; } },
+      { k: 's', label: 'Result', cls: 'nowrap', val: function (x) { return x.status; }, cell: sessionPill },
+      { k: 'r', label: 'Detail', val: function (x) { return x.result ? (x.result.resultText || '') : ''; }, cell: function (x) { return h('div', { class: 'trunc dim', text: x.result ? (x.result.resultText || x.result.resultCode || '') : '' }); } }
+    ], v.sessions, { sortKey: 't', sortDir: -1, onRow: drawerSession, empty: 'No Sync-channel events in this slice.' })
+  ]);
+}
+
+var SET_FILTERS = [
+  { k: 'all', label: 'All' },
+  { k: 'applied', label: 'Applied' },
+  { k: 'failing', label: 'Rejected' },
+  { k: 'flagged', label: 'Flagged' },
+  { k: 'policy', label: 'Policy CSP' },
+  { k: 'csp', label: 'Other CSP nodes' }
+];
+function viewSettings(v) {
+  if (!S.setFilter) S.setFilter = 'all';
+  var rows = v.settings.filter(function (r) {
+    switch (S.setFilter) {
+      case 'applied': return r.ok > 0 && r.fail === 0;
+      case 'failing': return r.fail > 0;
+      case 'flagged': return r.flags.length > 0;
+      case 'policy': return r.kind === 'policy';
+      case 'csp': return r.kind === 'csp';
+      default: return true;
+    }
+  });
+  var seg = h('div', { class: 'seg' }, SET_FILTERS.map(function (f) {
+    return h('button', {
+      'aria-pressed': S.setFilter === f.k ? 'true' : 'false', text: f.label,
+      onclick: function () { S.setFilter = f.k; render(); }
+    });
+  }));
+  var cols = [
+    { k: 'n', label: 'Setting', val: function (r) { return settingLabel(r); }, cell: function (r) { return h('div', { class: 'trunc', text: settingLabel(r), title: r.uri || settingLabel(r) }); } },
+    { k: 'a', label: 'Area', cls: 'nowrap', val: function (r) { return r.area || ''; }, cell: function (r) { return r.area || '—'; } },
+    { k: 'v', label: 'Logged value', cls: 'mono nowrap', val: function (r) { return r.lastValue || ''; }, cell: function (r) { return r.lastValue == null ? '—' : r.lastValue; } }
+  ];
+  if (S.state) {
+    cols.push({
+      k: 'ef', label: 'Effective now', cls: 'nowrap', val: function (r) { return effectiveFor(r) || ''; },
+      cell: function (r) {
+        var eff = effectiveFor(r);
+        if (eff == null) return h('span', { class: 'dim', text: '—' });
+        var differs = r.lastValue != null && normVal(r.lastValue) !== normVal(eff);
+        return h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, [
+          h('span', { class: 'mono', text: eff }),
+          differs ? h('span', { class: 'tag', text: 'differs', title: 'The log records the client writing ' + r.lastValue + ', but PolicyManager reports ' + eff + ' in force now.' }) : null
+        ]);
+      }
+    });
+  }
+  cols = cols.concat([
+    { k: 'w', label: 'Writers', cls: 'num', val: function (r) { return r.enrollCount; }, cell: function (r) { return r.enrollCount || '—'; } },
+    { k: 'tries', label: 'Tries', cls: 'num', val: function (r) { return r.attempts; }, cell: function (r) { return r.attempts; } },
+    { k: 'st', label: 'Outcome', cls: 'nowrap', val: function (r) { return r.state; }, cell: settingPill },
+    { k: 'fl', label: 'Flags', val: null, cell: flagCell },
+    { k: 'l', label: 'Last seen', cls: 'nowrap', val: function (r) { return r.last; }, cell: function (r) { return fmtShort(r.last); } }
+  ]);
+
+  return h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [
+      h('div', {}, [
+        h('h2', { text: 'Settings and CSP nodes seen in these logs' }),
+        h('div', { class: 'hint', text: 'One row per setting, built from PolicyManager writes and ConfigurationManager commands. Policy CSP URIs are folded into their Area/Name so both views of a setting land on the same row.' })
+      ]),
+      h('span', { class: 'spacer', style: { flex: '1' } }), seg
+    ]),
+    dataTable('settings', cols, rows, { sortKey: 'l', sortDir: -1, limit: 200, onRow: drawerSetting, empty: 'No settings matched.' })
+  ]);
+}
+
+function appliedPolicyList(v) {
+  return v.settings.filter(function (r) { return r.ok > 0; })
+    .sort(function (a, b) {
+      return (a.kind === b.kind ? 0 : a.kind === 'policy' ? -1 : 1) ||
+             String(a.area || '').localeCompare(String(b.area || '')) ||
+             String(a.name).localeCompare(String(b.name));
+    });
+}
+function idLabel(r) { return r.name || enrollLabel(r.id) || r.id; }
+
+/* the value PolicyManager reports as in force right now, for a logged setting */
+function effectiveFor(r) {
+  if (!S.state || r.kind !== 'policy') return null;
+  var e = S.state.byKey[((r.area || '') + '/' + r.name).toLowerCase()];
+  return e ? e.effective : null;
+}
+
+function viewPolicies(v) {
+  var root = h('div', { class: 'grid' });
+  var applied = appliedPolicyList(v);
+
+  /* ── applied policy names ── */
+  var copyBtn = h('button', {
+    class: 'btn sm', text: 'Copy list',
+    onclick: function () {
+      var lines = ['Applied policy settings — ' + (S.machine.computer || 'device') +
+        '  (' + fmtDT(S.tmin) + ' to ' + fmtDT(S.tmax) + ')', ''];
+      applied.forEach(function (r) {
+        lines.push((r.kind === 'policy' ? 'POLICY  ' : 'CSP     ') + settingLabel(r) +
+          (r.lastValue != null ? '  = ' + r.lastValue : '') +
+          '   [applied ' + r.ok + '×, last ' + fmtDT(r.last) + ']');
+        if (r.uri) lines.push('          ' + r.uri);
+      });
+      copyText(lines.join('\n'), this);
+    }
+  });
+  root.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [
+      h('div', {}, [
+        h('h2', { text: 'Applied policy settings' }),
+        h('div', { class: 'hint', text: 'Every setting the client accepted at least once, newest activity first. These are the policy names as the CSP knows them — Area and setting name, not the Intune profile name.' })
+      ]),
+      h('span', { class: 'spacer', style: { flex: '1' } }), copyBtn
+    ]),
+    dataTable('applied-pol', [
+      { k: 'k', label: 'Kind', cls: 'nowrap', val: function (r) { return r.kind; }, cell: function (r) { return h('span', { class: 'tag', text: r.kind === 'policy' ? 'Policy' : 'CSP node' }); } },
+      { k: 'n', label: 'Policy', val: function (r) { return settingLabel(r); }, cell: function (r) { return h('div', { class: 'trunc', text: settingLabel(r), title: r.uri || settingLabel(r) }); } },
+      { k: 'a', label: 'Area', cls: 'nowrap', val: function (r) { return r.area || ''; }, cell: function (r) { return r.area || '—'; } },
+      { k: 'v', label: 'Value', cls: 'mono nowrap', val: function (r) { return r.lastValue || ''; }, cell: function (r) { return r.lastValue == null ? '—' : r.lastValue; } },
+      { k: 'w', label: 'Written by', cls: 'nowrap', val: function (r) { var k = Object.keys(r.enrollments); return k.length ? (enrollLabel(k[0]) || k[0]) : ''; }, cell: function (r) { var k = Object.keys(r.enrollments); return k.length ? enrollCell(k[0]) : h('span', { class: 'dim', text: '—' }); } },
+      { k: 'c', label: 'Applied', cls: 'num', val: function (r) { return r.ok; }, cell: function (r) { return num(r.ok); } },
+      { k: 'st', label: 'State', cls: 'nowrap', val: function (r) { return r.state; }, cell: settingPill },
+      { k: 'l', label: 'Last applied', cls: 'nowrap', val: function (r) { return r.last; }, cell: function (r) { return fmtShort(r.last); } }
+    ], applied, { sortKey: 'l', sortDir: -1, limit: 200, onRow: drawerSetting, empty: 'Nothing applied cleanly in this slice.' })
+  ]));
+
+  /* ── identifiers ── */
+  root.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'Policy identifiers found in the logs' }),
+      h('div', { class: 'hint', text: 'Taken only from labelled fields in the message text. A bare GUID search would mislead — these channels are full of GUIDs that identify power schemes, sessions and requests rather than policies.' })
+    ])]),
+    dataTable('pol-ids', [
+      { k: 't', label: 'Type', cls: 'nowrap', val: function (r) { return r.type; }, cell: function (r) { return r.type; } },
+      { k: 'n', label: 'Name', val: function (r) { return r.name || enrollLabel(r.id) || ''; }, cell: function (r) { var nm = r.name || enrollLabel(r.id); return nm && nm !== r.id ? h('div', { class: 'trunc', text: nm, title: nm }) : h('span', { class: 'dim', text: '—' }); } },
+      { k: 'id', label: 'Identifier', cls: 'mono', val: function (r) { return r.id; }, cell: function (r) { return h('div', { class: 'trunc mono', text: r.id, title: r.id }); } },
+      { k: 'g', label: 'Embedded GUID', cls: 'mono nowrap', val: function (r) { return r.extra.policyGuid || ''; }, cell: function (r) { return r.extra.policyGuid || h('span', { class: 'dim', text: '—' }); } },
+      { k: 'sc', label: 'Scope', cls: 'nowrap', val: function (r) { return r.extra.target || r.extra.user || r.extra.enrollType || ''; }, cell: function (r) { return r.extra.target || r.extra.user || r.extra.enrollType || '—'; } },
+      { k: 'c', label: 'Events', cls: 'num', val: function (r) { return r.count; }, cell: function (r) { return num(r.count); } },
+      { k: 'l', label: 'Last seen', cls: 'nowrap', val: function (r) { return r.last; }, cell: function (r) { return fmtShort(r.last); } }
+    ], v.ids, {
+      sortKey: 't', sortDir: 1, empty: 'No labelled policy identifiers in this slice.',
+      onRow: function (r) {
+        openDrawer(idLabel(r), r.type + ' · ' + num(r.count) + ' events', h('div', {}, [
+          dl([
+            ['Type', r.type],
+            ['Name', r.name],
+            ['Identifier', h('span', { class: 'mono', text: r.id })],
+            ['Embedded policy GUID', r.extra.policyGuid ? h('span', { class: 'mono', text: r.extra.policyGuid }) : null],
+            ['Policy area', r.extra.area],
+            ['Document version', r.extra.version ? h('span', { class: 'mono', text: r.extra.version }) : null],
+            ['Target', r.extra.target],
+            ['User scope', r.extra.user],
+            ['Enrollment', r.extra.enrollment ? h('span', { class: 'mono', text: r.extra.enrollment }) : null],
+            ['Enrollment type', r.extra.enrollType],
+            ['CSP URI', r.extra.uri ? h('span', { class: 'mono', text: r.extra.uri }) : null],
+            ['First seen', fmtDT(r.first)],
+            ['Last seen', fmtDT(r.last)]
+          ]),
+          sec('Events (' + r.events.length + ')', eventStream(r.events, { id: 'id-ev', limit: 80 }))
+        ]));
+      }
+    })
+  ]));
+
+  root.appendChild(h('div', { class: 'card' }, [
+    h('h2', { text: 'What these logs do not contain' }),
+    h('p', { class: 'hint', style: { marginTop: '8px', lineHeight: '1.65' }, text:
+      'Intune profile display names and profile GUIDs are not written to these channels for ordinary settings-catalog and endpoint-security policies — the client logs the CSP it wrote (“Set policy int, Policy: (AllowTelemetry), Area: (System)”) and the enrollment that asked for it, not the profile it came from. The identifiers above are what is genuinely recoverable: ADMX/custom policy ingestion ids (which do embed a profile GUID), declared-configuration document ids, and the enrollment doing the writing. To map a setting back to a named profile, pair the enrollment id here with the device’s policy report in the Intune console.' })
+  ]));
+
+  return root;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Configuration — the registry snapshot: what Intune intends, what
+   actually took effect, and who is fighting over it.
+   ═══════════════════════════════════════════════════════════════ */
+function qMatch(str) {
+  var q = S.filters.q.trim().toLowerCase();
+  if (!q) return true;
+  var hay = String(str).toLowerCase(), terms = q.split(/\s+/);
+  for (var i = 0; i < terms.length; i++) if (hay.indexOf(terms[i]) < 0) return false;
+  return true;
+}
+function scopeLabel(sc) {
+  if (!sc) return '—';
+  return /^device$/i.test(sc) ? 'Device' : (/^S-1-/i.test(sc) ? 'User' : sc);
+}
+function drawerConfigRow(r) {
+  var eff = normVal(r.effective);
+  var body = h('div', {}, [
+    dl([
+      ['Policy', r.name],
+      ['Area', r.area],
+      ['Scope', scopeLabel(r.scope)],
+      ['Effective value', r.effective == null ? '— (not present in current policy state)' : h('span', { class: 'mono', text: r.effective })],
+      ['Value stored in', r.viaProvider ? 'the winning provider’s key (ADMX-backed policy)' : (r.effective != null ? 'PolicyManager\\current' : null)],
+      ['Enrollments writing it', String(r.enrollCount)],
+      ['Distinct values asked for', String(r.distinct)],
+      ['Winning provider', r.winner ? enrollCell(r.winner) : null],
+      ['ProviderSet flag', r.providerSet],
+      ['ADMX instance data', r.admx ? h('span', { class: 'mono', text: r.admx }) : null]
+    ]),
+    r.winner ? h('p', { class: 'hint', style: { marginTop: '10px' }, text: 'The winning provider is taken from the policy’s own _WinningProvider value, which PolicyManager writes — it is not inferred.' }) : null,
+    r.status === 'contested' ? h('p', { class: 'note', style: { marginTop: '12px' } }, [
+      h('strong', { text: 'Contested: ' }),
+      r.enrollCount + ' enrollments wrote this policy with ' + r.distinct + ' different values. PolicyManager merged them; the winner below is the one in force.'
+    ]) : null,
+    r.status === 'duplicated' ? h('p', { class: 'note', style: { marginTop: '12px' } }, [
+      h('strong', { text: 'Two writers, same value: ' }),
+      r.enrollCount + ' enrollments write this policy but agree on the value, so nothing is currently broken. It still means two authorities own the setting — change one and they will disagree.'
+    ]) : null,
+    r.status === 'not-effective' ? h('p', { class: 'note err', style: { marginTop: '12px' } }, [
+      h('strong', { text: 'Written but not effective: ' }),
+      'an enrollment wrote this policy but it does not appear in the current effective state.'
+    ]) : null,
+    sec('What each enrollment asked for', h('div', { class: 'tw' }, [
+      h('table', {}, [
+        h('thead', {}, [h('tr', {}, [h('th', { text: 'Enrollment' }), h('th', { text: 'Scope' }), h('th', { text: 'Value' }), h('th', { text: '' })])]),
+        h('tbody', {}, r.writers.map(function (w) {
+          var won = eff != null && normVal(w.value) === eff;
+          return h('tr', {}, [
+            h('td', {}, enrollCell(w.enrollment)),
+            h('td', { class: 'nowrap', text: scopeLabel(w.scope) }),
+            h('td', { class: 'mono', text: w.value }),
+            h('td', { class: 'nowrap' }, won ? statusPill('good', 'effective') : statusPill('muted', 'overridden'))
+          ]);
+        }))
+      ])
+    ]))
+  ]);
+
+  /* anything in the logs about this policy? */
+  var rel = S.view.events.filter(function (e) {
+    return e.f.policy && e.f.policy.toLowerCase() === String(r.name).toLowerCase();
+  });
+  if (rel.length) body.appendChild(sec('Related log events (' + rel.length + ')', eventStream(rel, { id: 'cfg-ev', limit: 40 })));
+
+  openDrawer(r.name, (r.area || '') + ' · ' + scopeLabel(r.scope), body);
+}
+
+function viewConfiguration() {
+  var X = S.state;
+  var root = h('div', { class: 'grid' });
+
+  if (!X) {
+    return h('div', { class: 'card' }, [
+      h('h2', { text: 'Endpoint configuration state' }),
+      h('p', { class: 'hint', style: { marginTop: '10px', lineHeight: '1.65' }, text:
+        'This file was made by an older collector that only captured event logs. Re-run the collector from the setup screen (Load data… → Copy) with $IncludeState = $true to add the registry snapshot: the effective value of every managed policy, what each enrollment asked for, and every CSP node the service has pushed. It still needs no administrator rights.' })
+    ]);
+  }
+
+  var rows = X.rows.filter(function (r) { return qMatch(r.area + ' ' + r.name + ' ' + (r.effective || '')); });
+  var nodes = X.nodes.filter(function (n) { return qMatch(n.uri + ' ' + (n.expected || '')); });
+  var enrolls = X.enrollments.slice().sort(function (a, b) {
+    var sa = (a.provider || a.upn) ? 0 : 1, sb = (b.provider || b.upn) ? 0 : 1;
+    return sa - sb || String(a.id).localeCompare(String(b.id));
+  });
+
+  /* cross-reference the desired nodes against what the logs said happened */
+  var byUri = {};
+  S.view.settings.forEach(function (st) { if (st.uri) byUri[st.uri.toLowerCase()] = st; });
+
+  root.appendChild(h('div', { class: 'tiles' }, [
+    tile('Managed policies', num(X.rows.length), 'effective on this device'),
+    tile('Contested', num(X.contested), X.contested
+      ? h('div', { class: 'meta' }, [statusPill('warn', 'writers disagree')])
+      : h('div', { class: 'meta' }, [statusPill('good', X.duplicated ? X.duplicated + ' share a writer, none disagree' : 'single authority')])),
+    tile('CSP nodes pushed', num(X.nodes.length), 'desired state in NodeCache'),
+    tile('Enrollments', num(X.enrollments.length), enrolls.filter(function (e) { return e.provider; }).length + ' with a provider')
+  ]));
+
+  root.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'Effective policy values, and who set them' }),
+      h('div', { class: 'hint', text: 'Read from PolicyManager: “current” is what is in force now, “providers” is what each enrollment asked for. Where those disagree you are looking at a real policy conflict and the value that won. This is a point-in-time registry snapshot — the range, channel and level filters above do not apply to it, but the search box does.' })
+    ])]),
+    dataTable('cfg-pol', [
+      { k: 'st', label: '', cls: 'nowrap', val: function (r) { return r.status === 'contested' ? 0 : r.status === 'duplicated' ? 1 : r.status === 'not-effective' ? 2 : 3; },
+        cell: function (r) {
+          return r.status === 'contested' ? statusPill('warn', 'Contested')
+               : r.status === 'duplicated' ? statusPill('serious', 'Two writers')
+               : r.status === 'not-effective' ? statusPill('crit', 'Not effective')
+               : statusPill('good', 'Set');
+        } },
+      { k: 'a', label: 'Area', cls: 'nowrap', val: function (r) { return r.area; }, cell: function (r) { return h('div', { class: 'trunc narrow', text: r.area, title: r.area }); } },
+      { k: 'n', label: 'Policy', val: function (r) { return r.name; }, cell: function (r) { return h('div', { class: 'trunc narrow', text: r.name, title: r.name }); } },
+      { k: 'v', label: 'Effective value', val: function (r) { return r.effective || ''; },
+        cell: function (r) {
+          if (r.effective == null) return h('span', { class: 'dim', text: '—' });
+          return h('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, [
+            h('div', { class: 'trunc narrow mono', text: r.effective, title: r.effective }),
+            r.viaProvider ? h('span', { class: 'tag', text: 'ADMX', title: 'Stored in the winning provider’s key rather than under current — normal for ADMX-backed policies.' }) : null
+          ]);
+        } },
+      { k: 'w', label: 'Writers', cls: 'num', val: function (r) { return r.writers.length; }, cell: function (r) { return r.writers.length || '—'; } },
+      { k: 'win', label: 'Set by', cls: 'nowrap', val: function (r) { return enrollLabel(r.winner) || ''; }, cell: function (r) { return r.winner ? enrollCell(r.winner) : h('span', { class: 'dim', text: '—' }); } },
+      { k: 'sc', label: 'Scope', cls: 'nowrap', val: function (r) { return scopeLabel(r.scope); }, cell: function (r) { return scopeLabel(r.scope); } }
+    ], rows, { sortKey: 'st', sortDir: 1, limit: 150, onRow: drawerConfigRow, empty: 'No managed policy values matched.' })
+  ]));
+
+  root.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'CSP nodes the service has pushed' }),
+      h('div', { class: 'hint', text: 'NodeCache — the desired state, one row per CSP node with the value the server expects. The outcome column cross-references the event logs, so a node the service pushed and the client rejected shows up here even though the registry alone would look fine.' })
+    ])]),
+    dataTable('cfg-nodes', [
+      { k: 'u', label: 'CSP node', val: function (n) { return n.uri; }, cell: function (n) { return h('div', { class: 'trunc wide mono', text: n.uri, title: n.uri }); } },
+      { k: 'e', label: 'Expected value', cls: 'mono', val: function (n) { return n.expected || ''; },
+        cell: function (n) { return n.expected ? h('div', { class: 'trunc mono', text: n.expected + (n.truncated ? ' …' : ''), title: n.expected }) : h('span', { class: 'dim', text: '(empty)' }); } },
+      { k: 'o', label: 'In the logs', cls: 'nowrap', val: function (n) { var s2 = byUri[String(n.uri).toLowerCase()]; return s2 ? (s2.state === 'failing' ? 0 : s2.state === 'flapping' ? 1 : 2) : 3; },
+        cell: function (n) {
+          var s2 = byUri[String(n.uri).toLowerCase()];
+          if (!s2) return h('span', { class: 'dim', text: 'not seen' });
+          return settingPill(s2);
+        } },
+      { k: 'sc', label: 'Scope', cls: 'nowrap', val: function (n) { return n.scope || ''; }, cell: function (n) { return n.scope || '—'; } }
+    ], nodes, {
+      sortKey: 'o', sortDir: 1, limit: 150, empty: 'No CSP nodes matched.',
+      onRow: function (n) {
+        var s2 = byUri[String(n.uri).toLowerCase()];
+        openDrawer(shortUri(n.uri), 'CSP node · ' + (n.provider || ''), h('div', {}, [
+          dl([
+            ['CSP URI', h('span', { class: 'mono', text: n.uri })],
+            ['Expected value', n.expected ? h('span', { class: 'mono', text: n.expected + (n.truncated ? '  …(truncated)' : '') }) : '(empty)'],
+            ['Provider', n.provider],
+            ['Scope', n.scope],
+            ['Cache id', n.id],
+            ['Seen in logs', s2 ? (s2.ok + ' accepted / ' + s2.fail + ' rejected') : 'no events reference this node']
+          ]),
+          s2 ? sec('Log history', eventStream(s2.events, { id: 'node-ev', limit: 60 })) : null
+        ]));
+      }
+    })
+  ]));
+
+  root.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'Enrollments' }),
+      h('div', { class: 'hint', text: 'Every management authority registered on this device. This is what turns the bare GUIDs elsewhere in these logs into names.' })
+    ])]),
+    dataTable('cfg-enr', [
+      { k: 'p', label: 'Provider', cls: 'nowrap', val: function (e) { return e.provider || 'zzz'; }, cell: function (e) { return e.provider || h('span', { class: 'dim', text: '—' }); } },
+      { k: 'id', label: 'Enrollment ID', cls: 'mono nowrap', val: function (e) { return e.id; }, cell: function (e) { return e.id; } },
+      { k: 'u', label: 'Enrolled as', val: function (e) { return e.upn || ''; }, cell: function (e) { return e.upn ? h('div', { class: 'trunc', text: e.upn, title: e.upn }) : h('span', { class: 'dim', text: '—' }); } },
+      { k: 's', label: 'State', cls: 'nowrap', val: function (e) { return e.state || ''; }, cell: function (e) { return e.state === '1' ? statusPill('good', 'Enrolled') : (e.state || '—'); } },
+      { k: 'd', label: 'Discovery URL', val: function (e) { return e.discovery || ''; }, cell: function (e) { return e.discovery ? h('div', { class: 'trunc', text: e.discovery, title: e.discovery }) : h('span', { class: 'dim', text: '—' }); } }
+    ], enrolls, {
+      sortKey: 'p', sortDir: 1, limit: 40, empty: 'No enrollments found.',
+      onRow: function (e) {
+        var pollKeys = e.poll ? Object.keys(e.poll) : [];
+        openDrawer(e.provider || e.id, 'Enrollment', h('div', {}, [
+          dl([
+            ['Enrollment ID', h('span', { class: 'mono', text: e.id })],
+            ['Provider', e.provider],
+            ['Enrolled as', e.upn],
+            ['Enrollment state', e.state],
+            ['Enrollment type', e.type],
+            ['Discovery URL', e.discovery]
+          ]),
+          pollKeys.length ? sec('Sync schedule (Poll)', dl(pollKeys.map(function (k) { return [k, h('span', { class: 'mono', text: String(e.poll[k]) })]; }))) : null
+        ]));
+      }
+    })
+  ]));
+
+  return root;
+}
+
+function viewProblems(v) {
+  var root = h('div', { class: 'grid' });
+
+  root.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'Failed and conflicting settings' }),
+      h('div', { class: 'hint', text: '“Never applied” = every write was rejected. “Intermittent” = accepted sometimes, rejected others. “Two writers” / “Merge” = more than one enrollment writes this setting, which is what a policy conflict looks like on the client.' })
+    ])]),
+    problemsTable(v.problems, 'prob')
+  ]));
+
+  if (v.drift.length) {
+    root.appendChild(h('div', { class: 'card' }, [
+      h('div', { class: 'chart-head' }, [h('div', {}, [
+        h('h2', { text: 'Drift and compliance mismatches' }),
+        h('div', { class: 'hint', text: 'The client reported an actual state that differs from the state policy asked for.' })
+      ])]),
+      dataTable('drift', [
+        { k: 'c', label: 'Count', cls: 'num', val: function (g) { return g.count; }, cell: function (g) { return num(g.count); } },
+        { k: 'i', label: 'ID', cls: 'num', val: function (g) { return g.id; }, cell: function (g) { return g.id; } },
+        { k: 'w', label: 'Wanted', cls: 'mono nowrap', val: function (g) { return g.sample.f.wanted || ''; }, cell: function (g) { return g.sample.f.wanted || '—'; } },
+        { k: 'f', label: 'Found', cls: 'mono nowrap', val: function (g) { return g.sample.f.found || ''; }, cell: function (g) { return g.sample.f.found || '—'; } },
+        { k: 'm', label: 'Message', val: function (g) { return g.sample.m; }, cell: function (g) { return h('div', { class: 'trunc wide', text: g.sample.m, title: g.sample.m }); } },
+        { k: 'l', label: 'Last seen', cls: 'nowrap', val: function (g) { return g.last; }, cell: function (g) { return fmtShort(g.last); } }
+      ], v.drift, { sortKey: 'c', onRow: drawerSig, empty: 'No drift reported.' })
+    ]));
+  }
+
+  root.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'Errors and warnings, grouped' }),
+      h('div', { class: 'hint', text: 'Identical messages collapsed into one row — GUIDs, hex codes and numbers are masked to group them. Open a row for every occurrence.' })
+    ])]),
+    dataTable('sigs', [
+      { k: 'sev', label: '', cls: 'nowrap', val: function (g) { return g.bk === 'error' ? 0 : 1; }, cell: function (g) { return g.bk === 'error' ? statusPill('crit', 'Error') : statusPill('warn', 'Warning'); } },
+      { k: 'c', label: 'Count', cls: 'num', val: function (g) { return g.count; }, cell: function (g) { return num(g.count); } },
+      { k: 'i', label: 'ID', cls: 'num', val: function (g) { return g.id; }, cell: function (g) { return g.id; } },
+      { k: 'ch', label: 'Channel', cls: 'nowrap', val: function (g) { return g.ch; }, cell: function (g) { return g.ch; } },
+      { k: 'cat', label: 'Category', cls: 'nowrap', val: function (g) { return g.cat; }, cell: function (g) { return g.cat; } },
+      { k: 'code', label: 'Code', cls: 'nowrap', val: function (g) { return topCode(g.codes) || ''; }, cell: function (g) { return codeCell(topCode(g.codes)); } },
+      { k: 'm', label: 'Message', val: function (g) { return g.sample.m; }, cell: function (g) { return h('div', { class: 'trunc', text: g.sample.m, title: g.sample.m }); } },
+      { k: 'l', label: 'Last seen', cls: 'nowrap', val: function (g) { return g.last; }, cell: function (g) { return fmtShort(g.last); } }
+    ], v.sigs, { sortKey: 'sev', sortDir: 1, onRow: drawerSig, empty: 'No errors or warnings in this slice.' })
+  ]));
+
+  return root;
+}
+
+function viewEvents(v) {
+  return h('div', { class: 'card' }, [
+    h('div', { class: 'chart-head' }, [h('div', {}, [
+      h('h2', { text: 'All events' }),
+      h('div', { class: 'hint', text: 'Every event in the current slice. Use the search box above to narrow it — try a policy name, a CSP URI fragment, or an event ID.' })
+    ])]),
+    dataTable('events', [
+      { k: 't', label: 'Time', cls: 'nowrap', val: function (e) { return e.t; }, cell: function (e) { return fmtDT(e.t); } },
+      { k: 'lvl', label: 'Level', cls: 'nowrap', val: function (e) { return e.bk === 'error' ? 0 : e.bk === 'warn' ? 1 : 2; }, cell: levelPill },
+      { k: 'ch', label: 'Channel', cls: 'nowrap', val: function (e) { return e.c; }, cell: function (e) { return e.c; } },
+      { k: 'i', label: 'ID', cls: 'num', val: function (e) { return e.i; }, cell: function (e) { return e.i; } },
+      { k: 'cat', label: 'Category', cls: 'nowrap', val: function (e) { return e.cat; }, cell: function (e) { return e.cat; } },
+      { k: 'm', label: 'Message', val: function (e) { return e.m; }, cell: function (e) { return h('div', { class: 'trunc wide', text: e.m, title: e.m }); } }
+    ], v.events, { sortKey: 't', sortDir: -1, limit: 300, onRow: drawerEvent, empty: 'No events match the current filters.' })
+  ]);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Filters + tabs + render loop
+   ═══════════════════════════════════════════════════════════════ */
+var TABS = [
+  { k: 'overview', label: 'Overview', view: viewOverview },
+  { k: 'syncs', label: 'Sync sessions', view: viewSyncs, count: function (v) { return v.sessions.length; } },
+  { k: 'settings', label: 'Settings', view: viewSettings, count: function (v) { return v.settings.length; } },
+  { k: 'policies', label: 'Policies', view: viewPolicies, count: function (v) { return v.ids.length; } },
+  { k: 'config', label: 'Configuration', view: viewConfiguration, count: function () { return S.state ? S.state.rows.length : 0; } },
+  { k: 'problems', label: 'Problems', view: viewProblems, count: function (v) { return v.problems.length + v.drift.length + v.sigs.length; } },
+  { k: 'events', label: 'Events', view: viewEvents, count: function (v) { return v.events.length; } }
+];
+
+var rangeBtns = [], chanBoxes = [], levelBoxes = [];
+function buildFilters() {
+  var segHost = clear($('#seg-range'));
+  rangeBtns = RANGES.map(function (r) {
+    var b = h('button', { text: r.label, 'aria-pressed': 'false', onclick: function () { S.filters.range = r.k; render(); } });
+    segHost.appendChild(b); return { r: r, b: b };
+  });
+
+  var ch = clear($('#chan-chips'));
+  chanBoxes = S.channels.map(function (c) {
+    var cb = h('input', { type: 'checkbox', checked: true });
+    cb.addEventListener('change', function () { S.filters.chans[c] = cb.checked; render(); });
+    ch.appendChild(h('label', { class: 'chip' }, [cb, h('span', { text: c })]));
+    return { c: c, cb: cb };
+  });
+
+  var lv = clear($('#level-chips'));
+  levelBoxes = [
+    { k: 'error', label: 'Errors' }, { k: 'warn', label: 'Warnings' }, { k: 'info', label: 'Info' }
+  ].map(function (l) {
+    var cb = h('input', { type: 'checkbox', checked: true });
+    cb.addEventListener('change', function () { S.filters.levels[l.k] = cb.checked; render(); });
+    lv.appendChild(h('label', { class: 'chip' }, [cb, h('span', { text: l.label })]));
+    return { k: l.k, cb: cb };
+  });
+
+  var q = $('#q'), timer = null;
+  q.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(function () { S.filters.q = q.value; render(); }, 180);
+  });
+  $('#btn-reset').addEventListener('click', function () {
+    S.filters.range = 'all'; S.filters.q = ''; q.value = '';
+    S.channels.forEach(function (c) { S.filters.chans[c] = true; });
+    S.filters.levels = { error: true, warn: true, info: true };
+    S.setFilter = 'all';
+    chanBoxes.forEach(function (x) { x.cb.checked = true; });
+    levelBoxes.forEach(function (x) { x.cb.checked = true; });
+    render();
+  });
+}
+
+function syncFilterUI() {
+  rangeBtns.forEach(function (x) { x.b.setAttribute('aria-pressed', S.filters.range === x.r.k ? 'true' : 'false'); });
+  $('#filter-count').textContent = num(S.view.events.length) + ' of ' + num(S.events.length) + ' events';
+}
+
+function buildTabs() {
+  var host = clear($('#tabs'));
+  TABS.forEach(function (t) {
+    var b = h('button', {
+      role: 'tab', 'aria-selected': S.tab === t.k ? 'true' : 'false',
+      onclick: function () { S.tab = t.k; render(); }
+    }, [t.label, t.count ? h('span', { class: 'count', text: num(t.count(S.view)) }) : null]);
+    host.appendChild(b);
+  });
+}
+
+function render() {
+  var v = derive();
+  syncFilterUI();
+  buildTabs();
+  var tab = TABS.filter(function (t) { return t.k === S.tab; })[0] || TABS[0];
+  var host = clear($('#view'));
+  host.appendChild(tab.view(v));
+}
+
+var rTimer = null;
+window.addEventListener('resize', function () {
+  if (!S.view) return;
+  clearTimeout(rTimer);
+  rTimer = setTimeout(render, 160);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Plain-text summary (for tickets)
+   ═══════════════════════════════════════════════════════════════ */
+function buildSummary() {
+  var v = S.view, L = [];
+  var m = S.machine || {};
+  L.push('Intune client log summary');
+  L.push('=========================');
+  L.push('Device      : ' + (m.computer || 'unknown') + (m.os ? '  (' + m.os + (m.build ? ' ' + m.build : '') + ')' : ''));
+  if (S.collected) L.push('Collected   : ' + fmtDT(S.collected));
+  L.push('Log window  : ' + fmtDT(S.tmin) + '  ->  ' + fmtDT(S.tmax));
+  L.push('Channels    : ' + S.channels.join(', '));
+  L.push('Events      : ' + num(v.events.length) + ' in the current view  (' + num(v.counts.error) + ' error, ' + num(v.counts.warn) + ' warning)');
+  L.push('');
+  L.push('SYNC');
+  L.push('  Sessions        : ' + v.sessions.length + '   (' + v.okSessions + ' clean, ' + v.badSessions + ' failed/incomplete)');
+  if (v.sessions.length) {
+    var last = v.sessions[v.sessions.length - 1];
+    L.push('  Last session    : ' + fmtDT(last.start) + '  ' + last.status + '  (' + fmtDur(last.dur) + ')');
+  }
+  L.push('');
+  L.push('ACTIVITY');
+  v.cats.forEach(function (g) {
+    L.push('  ' + (g.cat + '                         ').slice(0, 24) + ': ' + String(g.n) +
+      (g.reported ? '   (' + g.ok + '/' + g.reported + ' reported outcomes ok)' : '') +
+      (g.err ? '   ' + g.err + ' error' + (g.err === 1 ? '' : 's') : ''));
+  });
+  L.push('');
+  L.push('SETTINGS');
+  L.push('  Written         : ' + v.settings.length);
+  L.push('  Accepted        : ' + v.applied.length);
+  L.push('  Flagged         : ' + v.problems.length);
+  if (v.problems.length) {
+    L.push('');
+    L.push('  Needing attention:');
+    v.problems.slice(0, 25).forEach(function (r) {
+      L.push('   - ' + settingLabel(r));
+      L.push('       ' + r.attempts + ' attempts, ' + r.ok + ' accepted / ' + r.fail + ' rejected'
+        + (Object.keys(r.codes).length ? '   [' + Object.keys(r.codes).join(', ') + ']' : ''));
+      L.push('       ' + r.flags.map(function (f) { return f.t + ' (' + f.why + ')'; }).join('; '));
+      if (r.uri) L.push('       ' + r.uri);
+    });
+  }
+  if (S.state) {
+    L.push('');
+    L.push('ENDPOINT CONFIGURATION STATE (registry snapshot)');
+    L.push('  Managed policies : ' + S.state.rows.length + '   (' + S.state.contested + ' contested by more than one enrollment)');
+    L.push('  CSP nodes pushed : ' + S.state.nodes.length);
+    L.push('  Enrollments      : ' + S.state.enrollments.length);
+    S.state.enrollments.filter(function (e) { return e.provider || e.upn; }).forEach(function (e) {
+      L.push('     - ' + (e.provider || '(no provider)') + '  ' + e.id + (e.upn ? '  ' + e.upn : ''));
+    });
+    var cont = S.state.rows.filter(function (r) { return r.status === 'contested'; });
+    if (cont.length) {
+      L.push('');
+      L.push('  Contested policies:');
+      cont.slice(0, 25).forEach(function (r) {
+        L.push('     - ' + r.area + ' / ' + r.name + '  effective=' + r.effective);
+        r.writers.forEach(function (w) {
+          L.push('         ' + (enrollLabel(w.enrollment) || w.enrollment) + ' asked for ' + w.value +
+            (normVal(w.value) === normVal(r.effective) ? '   <-- in force' : ''));
+        });
+      });
+    }
+  }
+  var applied = appliedPolicyList(v);
+  if (applied.length) {
+    L.push('');
+    L.push('APPLIED POLICY SETTINGS (' + applied.length + ')');
+    applied.forEach(function (r) {
+      L.push('   - ' + settingLabel(r) + (r.lastValue != null ? ' = ' + r.lastValue : '') +
+        '   [' + r.ok + 'x, last ' + fmtDT(r.last) + ']');
+    });
+  }
+  if (v.ids.length) {
+    L.push('');
+    L.push('POLICY IDENTIFIERS');
+    v.ids.forEach(function (r) {
+      L.push('   - [' + r.type + '] ' + (r.name && r.name !== r.id ? r.name + '  ' : '') + r.id +
+        (r.extra.policyGuid ? '   guid=' + r.extra.policyGuid : '') +
+        (r.extra.target ? '   target=' + r.extra.target : ''));
+    });
+  }
+  if (v.drift.length) {
+    L.push('');
+    L.push('DRIFT / COMPLIANCE MISMATCH');
+    v.drift.slice(0, 10).forEach(function (g) { L.push('   - [x' + g.count + '] ' + g.sample.m); });
+  }
+  var errs = v.sigs.filter(function (g) { return g.bk === 'error'; });
+  if (errs.length) {
+    L.push('');
+    L.push('TOP ERRORS');
+    errs.slice(0, 12).forEach(function (g) {
+      L.push('   - [' + g.id + ' x' + g.count + '] ' + g.sample.m.split('\n')[0].slice(0, 200));
+    });
+  }
+  return L.join('\n');
+}
+
+function copyText(txt, btn) {
+  var done = function () {
+    if (!btn) return;
+    var old = btn.textContent; btn.textContent = 'Copied';
+    setTimeout(function () { btn.textContent = old; }, 1400);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done, function () { fallback(); });
+  } else fallback();
+  function fallback() {
+    var ta = h('textarea', { style: { position: 'fixed', opacity: '0' } });
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { }
+    document.body.removeChild(ta);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Loading
+   ═══════════════════════════════════════════════════════════════ */
+function note(msg, bad) {
+  var n = $('#load-note');
+  n.style.display = 'block';
+  n.className = 'note' + (bad ? ' err' : '');
+  n.textContent = msg;
+}
+
+function loadText(txt, name) {
+  var t = String(txt).replace(/^﻿/, '').trim();
+  var m = t.match(/^window\.INTUNE_LOG_DATA\s*=\s*([\s\S]*?);?\s*$/);
+  if (m) t = m[1];
+  var data;
+  try { data = JSON.parse(t); }
+  catch (err) { throw new Error('Could not parse ' + (name || 'that file') + ' as JSON — ' + err.message); }
+  ingest(data);
+  start();
+}
+
+function start() {
+  $('#setup').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  $('#btn-reload').classList.remove('hidden');
+  $('#btn-summary').classList.remove('hidden');
+  $('#btn-clear').classList.remove('hidden');
+  var m = S.machine || {};
+  var sub = (m.computer ? m.computer + ' · ' : '') +
+    fmtDT(S.tmin).slice(0, 16) + ' → ' + fmtDT(S.tmax).slice(0, 16) +
+    ' · ' + num(S.events.length) + ' events';
+  $('#brand-sub').textContent = sub;
+  document.title = 'Intune Log Explorer' + (m.computer ? ' — ' + m.computer : '');
+  S.tab = 'overview';
+  S.sort = {};
+  S.expand = {};
+  S.setFilter = 'all';
+  buildFilters();
+  render();
+  window.scrollTo(0, 0);
+}
+
+function readFile(file) {
+  if (/\.evtx$/i.test(file.name)) {
+    note('That is a raw .evtx file. A browser cannot decode the binary event-log format, and the rendered message text lives in the provider manifest rather than in the file. Run the collector in step 1 with $FromEvtxDir set to the folder holding your .evtx copies, then load the intune-logs.json it produces.', true);
+    return;
+  }
+  var fr = new FileReader();
+  fr.onload = function () {
+    try { loadText(fr.result, file.name); }
+    catch (err) { note(err.message, true); }
+  };
+  fr.onerror = function () { note('Could not read that file.', true); };
+  fr.readAsText(file);
+}
+
+var drop = $('#drop'), fileInput = $('#file');
+drop.addEventListener('click', function () { fileInput.click(); });
+fileInput.addEventListener('change', function () { if (fileInput.files[0]) readFile(fileInput.files[0]); });
+['dragenter', 'dragover'].forEach(function (ev) {
+  drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); });
+});
+['dragleave', 'drop'].forEach(function (ev) {
+  drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); });
+});
+drop.addEventListener('drop', function (e) {
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+});
+window.addEventListener('dragover', function (e) { e.preventDefault(); });
+window.addEventListener('drop', function (e) {
+  e.preventDefault();
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   Chrome wiring
+   ═══════════════════════════════════════════════════════════════ */
+$('#ps-view').textContent = $('#collector-src').textContent.trim();
+
+$('#btn-copy-ps').addEventListener('click', function () {
+  copyText($('#collector-src').textContent.trim(), this);
+});
+$('#btn-save-ps').addEventListener('click', function () {
+  var blob = new Blob([$('#collector-src').textContent.trim().replace(/\n/g, '\r\n')], { type: 'text/plain' });
+  var a = h('a', { href: URL.createObjectURL(blob), download: 'Collect-IntuneLogs.ps1' });
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 1000);
+});
+$('#btn-reload').addEventListener('click', function () {
+  $('#app').classList.add('hidden');
+  $('#setup').classList.remove('hidden');
+  window.scrollTo(0, 0);
+});
+$('#btn-summary').addEventListener('click', function () { copyText(buildSummary(), this); });
+
+/* Drop everything this page holds.  Nothing was ever persisted — the page keeps
+   log data in memory only (the sole thing it stores is the theme choice) — so
+   this plus closing the tab leaves nothing behind. */
+$('#btn-clear').addEventListener('click', function () {
+  S.raw = null; S.events = []; S.view = null; S.channels = []; S.machine = {}; S.state = null;
+  S.collected = null; S.windowInfo = null; S.tmin = 0; S.tmax = 0;
+  S.sort = {}; S.expand = {}; S.setFilter = 'all'; S.tab = 'overview';
+  try { window.INTUNE_LOG_DATA = undefined; delete window.INTUNE_LOG_DATA; } catch (e) { }
+  clear($('#view')); clear($('#tabs')); clear($('#chan-chips')); clear($('#level-chips')); clear($('#seg-range'));
+  $('#q').value = '';
+  $('#filter-count').textContent = '';
+  $('#app').classList.add('hidden');
+  $('#setup').classList.remove('hidden');
+  $('#btn-reload').classList.add('hidden');
+  $('#btn-summary').classList.add('hidden');
+  $('#btn-clear').classList.add('hidden');
+  $('#brand-sub').textContent = 'MDM diagnostic event channels';
+  document.title = 'Intune Log Explorer';
+  closeDrawer();
+  note('Loaded log data cleared from this page. Note that this does not delete intune-logs.js / intune-logs.json from disk — if one sits next to this file it will load again on refresh.', false);
+  window.scrollTo(0, 0);
+});
+
+$('#btn-theme').addEventListener('click', function () {
+  var cur = document.documentElement.getAttribute('data-theme');
+  var next = cur === 'dark' ? 'light' : cur === 'light' ? '' : 'dark';
+  if (next) document.documentElement.setAttribute('data-theme', next);
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('ile-theme', next); } catch (e) { }
+  if (S.view) render();
+});
+try {
+  var saved = localStorage.getItem('ile-theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+} catch (e) { }
+
+/* ── auto-load intune-logs.js sitting next to this file ───────── */
+(function autoLoad() {
+  if (window.INTUNE_LOG_DATA) { try { ingest(window.INTUNE_LOG_DATA); start(); } catch (e) { } return; }
+  var sc = document.createElement('script');
+  sc.src = 'intune-logs.js';
+  sc.onload = function () {
+    if (!window.INTUNE_LOG_DATA) return;
+    try { ingest(window.INTUNE_LOG_DATA); start(); }
+    catch (e) { note('Found intune-logs.js next to this page but could not use it: ' + e.message, true); }
+  };
+  sc.onerror = function () { /* nothing beside us — stay on the setup screen */ };
+  document.head.appendChild(sc);
+})();
+
+})();
+</script>
